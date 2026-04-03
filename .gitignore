@@ -1,0 +1,34 @@
+# Environnement virtuel
+venv/
+env/
+.venv/
+
+# Variables d'environnement (JAMAIS commiter !)
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+
+# Base de données locale
+*.db
+*.sqlite
+
+# Fichiers PDF générés
+*.pdf
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Alembic (garder les versions)
+alembic/versions/*.pyc
+
+# Logs
+*.log
