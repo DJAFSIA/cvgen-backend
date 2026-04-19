@@ -1,5 +1,6 @@
 import os
 import tempfile
+import fitz 
 
 async def generer_pdf(contenu_texte: str, nom_fichier: str) -> str:
     try:
@@ -43,3 +44,15 @@ async def generer_pdf(contenu_texte: str, nom_fichier: str) -> str:
             "WeasyPrint n'est pas installé. "
             "Exécutez : pip install weasyprint"
         )
+    
+def extraire_texte_du_pdf(chemin_fichier: str) -> str:
+    """Extrait le texte brut d'un fichier PDF pour l'analyse IA."""
+    try:
+        doc = fitz.open(chemin_fichier)
+        texte = ""
+        for page in doc:
+            texte += page.get_text()
+        return texte
+    except Exception as e:
+        print(f"Erreur lors de la lecture du PDF : {e}")
+        return ""       

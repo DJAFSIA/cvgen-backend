@@ -6,6 +6,38 @@ from dotenv import load_dotenv
 load_dotenv()
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
+async def parser_cv_avec_ia(texte_cv: str) -> dict:
+    """Analyse le texte brut d'un CV et retourne un profil structuré en JSON."""
+    prompt = f"""Tu es un expert en recrutement. Analyse ce texte de CV et extrait les informations au format JSON.
+    Structure attendue :
+    {{
+        "titre_profil": "intitulé du poste actuel ou visé",
+        "competences": "liste des compétences clés séparées par des virgules",
+        "experiences": "résumé détaillé des expériences professionnelles",
+        "formations": "résumé des diplômes et études",
+        "langues": "langues parlées"
+    }}
+    
+    Texte du CV :
+    {texte_cv}
+    
+    Réponds UNIQUEMENT avec le JSON, sans texte autour."""
+
+    response = client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.1,
+    )
+
+    texte = response.choices[0].message.content.strip()
+    texte = texte.replace("```json", "").replace("```", "").strip()
+    
+    try:
+        return json.loads(texte)
+    except:
+        return {}
+
+
 async def analyser_offre(contenu_offre: str, profil) -> dict:
     prompt = f"""Analyse cette offre d'emploi et retourne un JSON avec :
 - titre_poste (string)
@@ -91,3 +123,34 @@ Génère la lettre maintenant."""
         max_tokens=2000,
     )
     return response.choices[0].message.content
+
+async def extraire_donnees_profil(texte_cv: str) -> dict:
+    """Prend le texte brut d'un vieux CV et le transforme en profil structuré."""
+    prompt = f"""Tu es un expert en recrutement. Analyse ce texte de CV et extrait les informations au format JSON.
+    Structure attendue :
+    {{
+        "titre_profil": "intitulé du poste actuel ou visé",
+        "competences": "liste des compétences clés séparées par des virgules",
+        "experiences": "résumé détaillé des expériences professionnelles",
+        "formations": "résumé des diplômes et études",
+        "langues": "langues parlées"
+    }}
+    
+    Texte du CV :
+    {texte_cv}
+    
+    Réponds UNIQUEMENT avec le JSON."""
+
+    response = client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.1, # Plus bas pour être plus précis
+    )
+
+    texte = response.choices[0].message.content.strip()
+    texte = texte.replace("```json", "").replace("```", "").strip()
+    
+    try:
+        return json.loads(texte)
+    except:
+        return {{}}
