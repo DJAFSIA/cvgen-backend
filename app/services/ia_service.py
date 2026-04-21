@@ -6,151 +6,77 @@ from dotenv import load_dotenv
 load_dotenv()
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
+# --- PHASE 1 : PARSING DU CV ---
 async def parser_cv_avec_ia(texte_cv: str) -> dict:
-    """Analyse le texte brut d'un CV et retourne un profil structuré en JSON."""
     prompt = f"""Tu es un expert en recrutement. Analyse ce texte de CV et extrait les informations au format JSON.
     Structure attendue :
     {{
-        "titre_profil": "intitulé du poste actuel ou visé",
-        "competences": "liste des compétences clés séparées par des virgules",
-        "experiences": "résumé détaillé des expériences professionnelles",
-        "formations": "résumé des diplômes et études",
-        "langues": "langues parlées"
+        "nom": "nom", "prenom": "prénom", "titre_profil": "poste",
+        "competences": "skills", "experiences": "résumé XP",
+        "formations": "études", "langues": "langues"
     }}
-    
-    Texte du CV :
-    {texte_cv}
-    
-    Réponds UNIQUEMENT avec le JSON, sans texte autour."""
+    Texte : {texte_cv}"""
 
     response = client.chat.completions.create(
         model="llama-3.3-70b-versatile",
         messages=[{"role": "user", "content": prompt}],
-        temperature=0.1,
+        response_format={ "type": "json_object" }
     )
+    return json.loads(response.choices[0].message.content)
 
-    texte = response.choices[0].message.content.strip()
-    texte = texte.replace("```json", "").replace("```", "").strip()
-    
-    try:
-        return json.loads(texte)
-    except:
-        return {}
+extraire_donnees_profil = parser_cv_avec_ia
 
-
+# --- PHASE 3 : ANALYSE ET MATCHING ---
 async def analyser_offre(contenu_offre: str, profil) -> dict:
-    prompt = f"""Analyse cette offre d'emploi et retourne un JSON avec :
-- titre_poste (string)
-- entreprise (string)
-- mots_cles (liste de strings, max 10)
-- score_compatibilite (float entre 0 et 100)
+    # On prépare un résumé du profil pour l'IA
+    profil_data = f"""
+    TITRE: {profil.titre_profil}
+    COMPÉTENCES: {profil.competences}
+    EXPÉRIENCES: {profil.experiences}
+    """
 
-Profil du candidat :
-Titre : {profil.titre_profil or 'Non renseigné'}
-Compétences : {profil.competences or 'Non renseignées'}
-Expériences : {profil.experiences or 'Non renseignées'}
+    prompt = f"""
+    En tant qu'expert en recrutement, analyse cette offre d'emploi par rapport au profil du candidat.
+    
+    PROFIL CANDIDAT:
+    {profil_data}
 
-Offre d'emploi :
-{contenu_offre}
+    OFFRE D'EMPLOI:
+    {contenu_offre}
 
-Réponds UNIQUEMENT avec le JSON, sans texte autour."""
-
-    response = client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
-        messages=[{"role": "user", "content": prompt}],
-        max_tokens=1000,
-    )
-
-    texte = response.choices[0].message.content.strip()
-    texte = texte.replace("```json", "").replace("```", "").strip()
-
-    try:
-        return json.loads(texte)
-    except Exception:
-        return {
-            "titre_poste": None,
-            "entreprise": None,
-            "mots_cles": [],
-            "score_compatibilite": None,
-        }
-
-
-async def generer_cv(profil, offre, modele: str = "classique") -> str:
-    prompt = f"""Tu es un expert en rédaction de CV professionnels.
-Génère un CV complet et professionnel. Utilise UNIQUEMENT les informations fournies.
-
-PROFIL :
-Titre : {profil.titre_profil or 'Non renseigné'}
-Expériences : {profil.experiences or 'Non renseignées'}
-Formations : {profil.formations or 'Non renseignées'}
-Compétences : {profil.competences or 'Non renseignées'}
-Langues : {profil.langues or 'Non renseignées'}
-
-OFFRE CIBLÉE :
-Poste : {offre.titre_poste or 'Non spécifié'}
-Entreprise : {offre.entreprise or 'Non spécifiée'}
-Mots-clés : {offre.mots_cles or 'Non extraits'}
-
-Génère le CV maintenant."""
-
-    response = client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
-        messages=[{"role": "user", "content": prompt}],
-        max_tokens=2000,
-    )
-    return response.choices[0].message.content
-
-
-async def generer_lettre_motivation(profil, offre, ton: str = "professionnel") -> str:
-    prompt = f"""Tu es un expert en lettres de motivation.
-Génère une lettre professionnelle et personnalisée. Ton : {ton}.
-Utilise UNIQUEMENT les informations fournies.
-
-PROFIL :
-Titre : {profil.titre_profil or 'Non renseigné'}
-Expériences : {profil.experiences or 'Non renseignées'}
-Compétences : {profil.competences or 'Non renseignées'}
-
-OFFRE :
-Poste : {offre.titre_poste or 'Non spécifié'}
-Entreprise : {offre.entreprise or 'Non spécifiée'}
-
-Génère la lettre maintenant."""
-
-    response = client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
-        messages=[{"role": "user", "content": prompt}],
-        max_tokens=2000,
-    )
-    return response.choices[0].message.content
-
-async def extraire_donnees_profil(texte_cv: str) -> dict:
-    """Prend le texte brut d'un vieux CV et le transforme en profil structuré."""
-    prompt = f"""Tu es un expert en recrutement. Analyse ce texte de CV et extrait les informations au format JSON.
-    Structure attendue :
+    Tu DOIS impérativement retourner un JSON avec TOUS les champs suivants remplis (ne laisse rien de vide) :
     {{
-        "titre_profil": "intitulé du poste actuel ou visé",
-        "competences": "liste des compétences clés séparées par des virgules",
-        "experiences": "résumé détaillé des expériences professionnelles",
-        "formations": "résumé des diplômes et études",
-        "langues": "langues parlées"
+        "titre_poste": "Le titre du poste trouvé dans l'offre",
+        "entreprise": "Le nom de l'entreprise trouvé",
+        "score_compatibilite": (un entier entre 0 et 100),
+        "points_forts": ["Donne au moins 3 points forts ou correspondances même minimes"],
+        "points_manquants": ["Donne au moins 3 compétences ou mots-clés qui manquent au candidat"],
+        "mots_cles": ["8 mots-clés techniques de l'offre"],
+        "conseil_ia": "Donne un conseil concret pour que le candidat améliore ce score"
     }}
+    CONSIGNES STRICTES :
+    - "points_forts" : Même si le score est bas, trouve au moins 2 points communs (ex: langue, soft skills, diplôme).
+    - "points_manquants" : Liste les 3 compétences techniques les plus importantes de l'offre que le candidat n'a pas.
+    - "conseil_ia" : Sois encourageant et donne une action concrète.
     
-    Texte du CV :
-    {texte_cv}
-    
-    Réponds UNIQUEMENT avec le JSON."""
+    RETOURNE UN JSON COMPLET. NE JAMAIS RENVOYER DE LISTE VIDE.
+    """
 
     response = client.chat.completions.create(
         model="llama-3.3-70b-versatile",
         messages=[{"role": "user", "content": prompt}],
-        temperature=0.1, # Plus bas pour être plus précis
+        response_format={ "type": "json_object" }
     )
-
-    texte = response.choices[0].message.content.strip()
-    texte = texte.replace("```json", "").replace("```", "").strip()
     
-    try:
-        return json.loads(texte)
-    except:
-        return {{}}
+    return json.loads(response.choices[0].message.content)
+
+# --- PHASE 4 : GÉNÉRATION ---
+async def generer_cv(profil, offre) -> str:
+    prompt = f"Rédige un CV pour {offre.titre_poste} basé sur {profil.experiences}"
+    response = client.chat.completions.create(model="llama-3.3-70b-versatile", messages=[{"role": "user", "content": prompt}])
+    return response.choices[0].message.content
+
+async def generer_lettre_motivation(profil, offre) -> str:
+    prompt = f"Rédige une lettre pour {offre.titre_poste}"
+    response = client.chat.completions.create(model="llama-3.3-70b-versatile", messages=[{"role": "user", "content": prompt}])
+    return response.choices[0].message.content

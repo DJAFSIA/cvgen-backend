@@ -39,38 +39,42 @@ async def extraire_offre(
 
 
 #  SOUMISSION ET ANALYSE IA 
-@router.post("/", response_model=OffreResponse, status_code=201)
-async def soumettre_offre(
-    data: OffreCreate,
-    db: Session = Depends(get_db),
-    current_user: Utilisateur = Depends(get_current_user)
-):
-    # Vérification que le profil n'est pas vide
+@router.post("/", response_model=OffreResponse)
+async def soumettre_offre(data: OffreCreate, db: Session = Depends(get_db), current_user = Depends(get_current_user)):
     profil = db.query(Profil).filter(Profil.utilisateur_id == current_user.id).first()
-    if not profil or not profil.competences:
-        raise HTTPException(
-            status_code=400, 
-            detail="Complétez votre profil (compétences, expériences) avant de soumettre une offre"
-        )
-
-    # Analyse croisée IA (C'est ici que le matching se fait)
+    
+    # Appel de l'IA
     analyse = await analyser_offre(data.contenu_brut, profil)
-
-    # Création de l'entrée en base de données
+    
+    # Création de l'objet Offre
     offre = OffreEmploi(
         utilisateur_id=current_user.id,
         url_source=data.url_source,
         contenu_brut=data.contenu_brut,
-        titre_poste=analyse.get("titre_poste") or "Poste non identifié",
-        entreprise=analyse.get("entreprise") or "Entreprise non identifiée",
+        titre_poste=analyse.get("titre_poste"),
+        entreprise=analyse.get("entreprise"),
+        score_compatibilite=analyse.get("score_compatibilite", 0),
+        # On convertit les listes en chaînes séparées par des virgules pour la BDD 
+        # SI tes colonnes sont de type String
         mots_cles=", ".join(analyse.get("mots_cles", [])),
-        score_compatibilite=analyse.get("score_compatibilite") or 0.0,
     )
     
     db.add(offre)
     db.commit()
     db.refresh(offre)
-    return offre
+
+    # TRÈS IMPORTANT : On construit la réponse manuellement pour être sûr 
+    # que les listes de l'IA arrivent au Frontend
+    return {
+        "id": offre.id,
+        "titre_poste": offre.titre_poste,
+        "entreprise": offre.entreprise,
+        "score_compatibilite": offre.score_compatibilite,
+        "points_forts": analyse.get("points_forts", ["Analyse indisponible"]),
+        "points_manquants": analyse.get("points_manquants", ["Analyse indisponible"]),
+        "conseil_ia": analyse.get("conseil_ia", "Pas de conseil disponible"),
+        "date_ajout": offre.date_ajout
+    }
 
 
 # --- ROUTE : LISTER LES OFFRES DE L'UTILISATEUR ---
