@@ -51,10 +51,11 @@ def creer_candidature(
 @router.post("/{candidature_id}/generer")
 async def lancer_generation(
     candidature_id: str,
-    data: GenerationRequest,
+    data: GenerationRequest, # Utilise le schéma mis à jour
     db: Session = Depends(get_db),
     current_user: Utilisateur = Depends(get_current_user)
 ):
+    # 1. Chercher la candidature
     candidature = db.query(Candidature).filter(
         Candidature.id == candidature_id,
         Candidature.utilisateur_id == current_user.id
@@ -63,40 +64,41 @@ async def lancer_generation(
     if not candidature:
         raise HTTPException(status_code=404, detail="Candidature introuvable")
 
-    # On récupère le profil et l'offre liés
+    # 2. Récupérer profil et offre via les relations SQLAlchemy
     profil = candidature.profil
     offre = candidature.offre
 
-    # A. Génération par l'IA
-    # On utilise les modèles ou les tons si fournis dans la requête
-    modele = getattr(data, 'modele_cv', 'classique')
-    ton = getattr(data, 'ton_lettre', 'professionnel')
+    if not profil or not offre:
+        raise HTTPException(status_code=400, detail="Données de profil ou d'offre manquantes")
 
+    # 3. Appel IA pour la génération
+    # On utilise les valeurs envoyées par le front (data.modele_cv, etc.)
     contenu_cv = await generer_cv(profil, offre)
     contenu_lettre = await generer_lettre_motivation(profil, offre)
 
-    # B. Sauvegarde ou Mise à jour du CV en base
-    cv = db.query(CV).filter(CV.candidature_id == candidature.id).first()
-    if not cv:
-        cv = CV(candidature_id=candidature.id, contenu_genere=contenu_cv, modele=modele)
-        db.add(cv)
+    # 4. Sauvegarde du CV
+    cv_obj = db.query(CV).filter(CV.candidature_id == candidature.id).first()
+    if not cv_obj:
+        cv_obj = CV(candidature_id=candidature.id, contenu_genere=contenu_cv, modele=data.modele_cv)
+        db.add(cv_obj)
     else:
-        cv.contenu_genere = contenu_cv
+        cv_obj.contenu_genere = contenu_cv
 
-    # C. Sauvegarde ou Mise à jour de la Lettre en base
-    lettre = db.query(LettreMotivation).filter(LettreMotivation.candidature_id == candidature.id).first()
-    if not lettre:
-        lettre = LettreMotivation(candidature_id=candidature.id, contenu_genere=contenu_lettre, ton=ton)
-        db.add(lettre)
+    # 5. Sauvegarde de la Lettre
+    lettre_obj = db.query(LettreMotivation).filter(LettreMotivation.candidature_id == candidature.id).first()
+    if not lettre_obj:
+        lettre_obj = LettreMotivation(candidature_id=candidature.id, contenu_genere=contenu_lettre, ton=data.ton_lettre)
+        db.add(lettre_obj)
     else:
-        lettre.contenu_genere = contenu_lettre
+        lettre_obj.contenu_genere = contenu_lettre
 
-    # D. Mise à jour du statut
+    # 6. Mise à jour du statut final
     candidature.statut = "generee"
     db.commit()
 
+    # 7. Retourner le format attendu par ton Frontend
     return {
-        "message": "Documents rédigés avec succès par l'IA",
+        "id": candidature.id,
         "cv": contenu_cv,
         "lettre": contenu_lettre
     }

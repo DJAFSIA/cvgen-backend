@@ -3,7 +3,6 @@ from uuid import UUID
 from datetime import datetime
 from typing import List, Optional
 
-# --- MODÈLES POUR LES OFFRES ---
 class OffreCreate(BaseModel):
     url_source: Optional[str] = None
     contenu_brut: str
@@ -13,30 +12,28 @@ class OffreResponse(BaseModel):
     titre_poste: Optional[str] = None
     entreprise: Optional[str] = None
     score_compatibilite: Optional[int] = 0
-    mots_cles: Optional[str] = ""
     points_forts: List[str] = []
     points_manquants: List[str] = []
     conseil_ia: Optional[str] = None
     date_ajout: datetime
-
     model_config = ConfigDict(from_attributes=True)
 
-# --- MODÈLES POUR LES CANDIDATURES (Génération CV/Lettre) ---
+# Pour POST /candidature/
 class CandidatureCreate(BaseModel):
     offre_id: UUID
 
+# Pour POST /generer (C'est ici que ton 422 se produisait)
 class GenerationRequest(BaseModel):
-    offre_id: UUID
-    type_document: str  # 'cv' ou 'lettre' ou 'tous'
+    modele_cv: str = "classique"
+    ton_lettre: str = "professionnel"
 
 class CandidatureResponse(BaseModel):
     id: UUID
     offre_id: UUID
-    statut: str  # 'en_cours', 'generee', 'exportee'
+    statut: str
     cv_genere: Optional[str] = None
     lettre_genere: Optional[str] = None
     date_creation: datetime
-
     model_config = ConfigDict(from_attributes=True)
 
 OffreResponse.model_rebuild()
