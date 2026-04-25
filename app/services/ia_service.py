@@ -9,14 +9,22 @@ client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 # --- PHASE 1 : PARSING DU CV ---
 async def parser_cv_avec_ia(texte_cv: str) -> dict:
-    prompt = f"""Tu es un expert en recrutement. Analyse ce texte de CV et extrait les informations au format JSON.
-    Structure attendue :
+    prompt = f"""
+    Extrais les infos de ce CV en JSON ultra-structuré :
     {{
-        "nom": "nom", "prenom": "prénom", "titre_profil": "poste actuel",
-        "competences": "skills", "experiences": "résumé détaillé XP",
-        "formations": "études", "langues": "langues"
+        "identite": {{ "nom": "", "prenom": "", "email": "", "telephone": "", "adresse": "" }},
+        "experiences": [
+            {{ "poste": "", "entreprise": "", "lieu": "", "date_debut": "", "date_fin": "", "description": "" }}
+        ],
+        "formations": [
+            {{ "diplome": "", "etablissement": "", "lieu": "", "annee": "" }}
+        ],
+        "competences": [],
+        "langues": []
     }}
-    Texte : {texte_cv}"""
+    Texte : {texte_cv}
+    """
+    # Le modèle doit absolument remplir tous les champs. Ne jamais laisser de listes vides.
 
     response = client.chat.completions.create(
         model="llama-3.3-70b-versatile",
@@ -35,10 +43,11 @@ async def analyser_offre(contenu_offre: str, profil) -> dict:
     OFFRE: {contenu_offre}
     PROFIL: {profil_data}
 
-    Retourne un JSON avec :
-    - titre_poste, entreprise, score_compatibilite (int)
-    - points_forts (list), points_manquants (list), conseil_ia (string)
-    FORCE l'IA à remplir tous les champs. Ne renvoie jamais de listes vides."""
+    Calcule le score sur 100 selon ces critères :
+- 40 points : Compétences techniques (Hard Skills) correspondantes.
+- 30 points : Années d'expérience dans un poste similaire.
+- 20 points : Niveau d'études / Diplômes requis.
+- 10 points : Langues et Soft Skills."""
 
     response = client.chat.completions.create(
         model="llama-3.3-70b-versatile",

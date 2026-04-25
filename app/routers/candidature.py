@@ -55,26 +55,22 @@ async def lancer_generation(
     db: Session = Depends(get_db),
     current_user: Utilisateur = Depends(get_current_user)
 ):
-    # 1. Chercher la candidature
-    candidature = db.query(Candidature).filter(
-        Candidature.id == candidature_id,
-        Candidature.utilisateur_id == current_user.id
-    ).first()
+    # On récupère tout
+    cand = db.query(Candidature).options(joinedload(...)).first()
     
-    if not candidature:
-        raise HTTPException(status_code=404, detail="Candidature introuvable")
-
-    # 2. Récupérer profil et offre via les relations SQLAlchemy
-    profil = candidature.profil
-    offre = candidature.offre
-
-    if not profil or not offre:
-        raise HTTPException(status_code=400, detail="Données de profil ou d'offre manquantes")
-
-    # 3. Appel IA pour la génération
-    # On utilise les valeurs envoyées par le front (data.modele_cv, etc.)
-    contenu_cv = await generer_cv(profil, offre)
-    contenu_lettre = await generer_lettre_motivation(profil, offre)
+    # On crée un dictionnaire de contexte très riche pour l'IA
+    contexte_candidat = {
+        "nom_complet": f"{cand.profil.utilisateur.prenom} {cand.profil.utilisateur.nom}",
+        "email": cand.profil.utilisateur.email,
+        "telephone": getattr(cand.profil, 'telephone', 'Non renseigné'), # Si tu as ajouté ce champ
+        "titre": cand.profil.titre_profil,
+        "experiences": cand.profil.experiences,
+        "formations": cand.profil.formations
+    }
+    
+    # On envoie ce dictionnaire à generer_cv
+    contenu_cv = await generer_cv(contexte_candidat, cand.offre)
+    contenu_lettre = await generer_lettre_motivation(contexte_candidat, cand.offre)
 
     # 4. Sauvegarde du CV
     cv_obj = db.query(CV).filter(CV.candidature_id == candidature.id).first()
