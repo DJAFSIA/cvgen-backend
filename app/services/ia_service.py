@@ -121,6 +121,9 @@ async def generer_cv(profil, offre) -> str:
        **Poste | Entreprise | Lieu | Dates**.
     3. NE JAMAIS utiliser de crochets [ ].
     4. Récupère les lieux et dates exacts présents dans le JSON des expériences.
+    5. OPTIMISATION ATS : Pour chaque expérience, ne te contente pas de lister les tâches. 
+   Réécris-les en utilisant les mots-clés de l'offre ({offre.mots_cles}) pour montrer 
+   en quoi cette expérience passée prépare parfaitement au poste de {offre.titre_poste}.
     """
     response = client.chat.completions.create(
         model="llama-3.3-70b-versatile",
@@ -131,12 +134,12 @@ async def generer_cv(profil, offre) -> str:
 
 # --- PHASE 4 : GÉNÉRATION DE LETTRE DE MOTIVATION ---
 async def generer_lettre_motivation(profil, offre) -> str:
-    identite = profil.titre_profil if profil.titre_profil else "Candidat"
+    nom_expediteur = profil.nom_complet_cv or f"{profil.utilisateur.prenom} {profil.utilisateur.nom}"
+    email_expediteur = profil.email_cv or profil.utilisateur.email
     date_du_jour = datetime.now().strftime("%d %B %Y")
 
-    prompt = f"""Rédige une lettre de motivation professionnelle en Markdown.
-    
-    EXPÉDITEUR : {identite}
+    prompt = f"""Rédige une lettre de motivation "Haute Performance".
+    EXPÉDITEUR : {nom_expediteur} ({email_expediteur})
     DESTINATAIRE : Responsable du recrutement chez {offre.entreprise}
     POSTE : {offre.titre_poste}
     DATE : {date_du_jour}
@@ -147,7 +150,7 @@ async def generer_lettre_motivation(profil, offre) -> str:
     RÈGLES :
     - INTERDICTION de mettre des crochets [ ].
     - Ton : Professionnel et déterminé.
-    - Signature finale : {identite}.
+    - Signature finale : {nom_expediteur}.
     """
 
     response = client.chat.completions.create(
