@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import FileResponse
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload # Import de joinedload ajouté
 from typing import List
 import os
 
@@ -23,10 +23,12 @@ def creer_candidature(
     db: Session = Depends(get_db),
     current_user: Utilisateur = Depends(get_current_user)
 ):
+    # Vérifier que le profil existe
     profil = db.query(Profil).filter(Profil.utilisateur_id == current_user.id).first()
     if not profil:
         raise HTTPException(status_code=400, detail="Veuillez remplir votre profil avant de postuler.")
 
+    # Vérifier que l'offre appartient bien à l'utilisateur (ou existe)
     offre = db.query(OffreEmploi).filter(
         OffreEmploi.id == data.offre_id,
         OffreEmploi.utilisateur_id == current_user.id
@@ -35,6 +37,7 @@ def creer_candidature(
     if not offre:
         raise HTTPException(status_code=404, detail="Offre introuvable.")
 
+    # Créer l'entrée
     candidature = Candidature(
         utilisateur_id=current_user.id,
         profil_id=profil.id,
@@ -51,39 +54,46 @@ def creer_candidature(
 @router.post("/{candidature_id}/generer")
 async def lancer_generation(
     candidature_id: str,
-    data: GenerationRequest, # Utilise le schéma mis à jour
+    data: GenerationRequest,
     db: Session = Depends(get_db),
     current_user: Utilisateur = Depends(get_current_user)
 ):
-    # On récupère tout
-    cand = db.query(Candidature).options(joinedload(...)).first()
+    # CHARGEMENT CRUCIAL : On récupère la candidature avec le profil ET l'utilisateur (pour nom/email)
+    candidature = db.query(Candidature).options(
+        joinedload(Candidature.profil).joinedload(Profil.utilisateur),
+        joinedload(Candidature.offre)
+    ).filter(
+        Candidature.id == candidature_id,
+        Candidature.utilisateur_id == current_user.id
+    ).first()
     
-    # On crée un dictionnaire de contexte très riche pour l'IA
-    contexte_candidat = {
-        "nom_complet": f"{cand.profil.utilisateur.prenom} {cand.profil.utilisateur.nom}",
-        "email": cand.profil.utilisateur.email,
-        "telephone": getattr(cand.profil, 'telephone', 'Non renseigné'), # Si tu as ajouté ce champ
-        "titre": cand.profil.titre_profil,
-        "experiences": cand.profil.experiences,
-        "formations": cand.profil.formations
-    }
-    
-    # On envoie ce dictionnaire à generer_cv
-    contenu_cv = await generer_cv(contexte_candidat, cand.offre)
-    contenu_lettre = await generer_lettre_motivation(contexte_candidat, cand.offre)
+    if not candidature:
+        raise HTTPException(status_code=404, detail="Candidature introuvable")
 
-    # 4. Sauvegarde du CV
+    # On appelle l'IA (le service utilisera candidature.profil.utilisateur pour l'identité)
+    contenu_cv = await generer_cv(candidature.profil, candidature.offre)
+    contenu_lettre = await generer_lettre_motivation(candidature.profil, candidature.offre)
+
+    # 4. Sauvegarde ou mise à jour du CV
     cv_obj = db.query(CV).filter(CV.candidature_id == candidature.id).first()
     if not cv_obj:
-        cv_obj = CV(candidature_id=candidature.id, contenu_genere=contenu_cv, modele=data.modele_cv)
+        cv_obj = CV(
+            candidature_id=candidature.id, 
+            contenu_genere=contenu_cv, 
+            modele=data.modele_cv
+        )
         db.add(cv_obj)
     else:
         cv_obj.contenu_genere = contenu_cv
 
-    # 5. Sauvegarde de la Lettre
+    # 5. Sauvegarde ou mise à jour de la Lettre
     lettre_obj = db.query(LettreMotivation).filter(LettreMotivation.candidature_id == candidature.id).first()
     if not lettre_obj:
-        lettre_obj = LettreMotivation(candidature_id=candidature.id, contenu_genere=contenu_lettre, ton=data.ton_lettre)
+        lettre_obj = LettreMotivation(
+            candidature_id=candidature.id, 
+            contenu_genere=contenu_lettre, 
+            ton=data.ton_lettre
+        )
         db.add(lettre_obj)
     else:
         lettre_obj.contenu_genere = contenu_lettre
@@ -92,7 +102,6 @@ async def lancer_generation(
     candidature.statut = "generee"
     db.commit()
 
-    # 7. Retourner le format attendu par ton Frontend
     return {
         "id": candidature.id,
         "cv": contenu_cv,
@@ -108,7 +117,10 @@ async def exporter_pdf(
     db: Session = Depends(get_db),
     current_user: Utilisateur = Depends(get_current_user)
 ):
-    candidature = db.query(Candidature).filter(
+    candidature = db.query(Candidature).options(
+        joinedload(Candidature.cv),
+        joinedload(Candidature.lettre)
+    ).filter(
         Candidature.id == candidature_id,
         Candidature.utilisateur_id == current_user.id
     ).first()
@@ -116,6 +128,7 @@ async def exporter_pdf(
     if not candidature:
         raise HTTPException(status_code=404, detail="Candidature introuvable")
 
+    # Sélection du contenu selon le type demandé
     if type_doc == "cv" and candidature.cv:
         contenu = candidature.cv.contenu_genere
         nom_fichier = f"CV_{current_user.nom}.pdf"
@@ -123,9 +136,9 @@ async def exporter_pdf(
         contenu = candidature.lettre.contenu_genere
         nom_fichier = f"Lettre_{current_user.nom}.pdf"
     else:
-        raise HTTPException(status_code=404, detail="Le document n'a pas encore été généré.")
+        raise HTTPException(status_code=404, detail="Document non généré ou type inconnu.")
 
-    # Appel au service PDF (WeasyPrint)
+    # Génération du fichier via le service PDF
     chemin_pdf = await generer_pdf(contenu, nom_fichier)
     
     return FileResponse(

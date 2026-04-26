@@ -42,20 +42,59 @@ def update_profil(
     return profil
     
 @router.post("/import-cv")
-async def import_cv(file: UploadFile = File(...), db: Session = Depends(get_db), current_user = Depends(get_current_user)):
-    # 1. Sauvegarde temporaire du fichier
+async def import_cv(
+    file: UploadFile = File(...), 
+    db: Session = Depends(get_db), 
+    current_user = Depends(get_current_user)
+):
+    # 1. Sauvegarde temporaire du fichier PDF
     temp_path = f"temp_{current_user.id}.pdf"
-    with open(temp_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-    # 2. Extraction du texte
-    texte_brut = extraire_texte_du_pdf(temp_path)
-    # 3. Analyse par l'IA
-    donnees_extraites = await parser_cv_avec_ia(texte_brut)
-    # 4. Mise à jour du profil en base de données (SQLAlchemy)
-    profil = db.query(Profil).filter(Profil.utilisateur_id == current_user.id).first()
-    profil.competences = donnees_extraites.get("competences")
-    profil.experiences = donnees_extraites.get("experiences")
-    db.commit()
-    os.remove(temp_path) # Nettoyage
-    return {"message": "Profil mis à jour avec succès", "data": donnees_extraites}
+    try:
+        with open(temp_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        
+        # 2. Extraction du texte (C'est ici qu'on définit 'texte_brut')
+        texte_brut = extraire_texte_du_pdf(temp_path)
+        
+        if not texte_brut or len(texte_brut) < 10:
+            raise HTTPException(status_code=400, detail="Impossible d'extraire le texte du PDF.")
+
+        # 3. Analyse par l'IA (On utilise maintenant 'texte_brut')
+        donnees = await parser_cv_avec_ia(texte_brut)
+        
+        # 4. Mise à jour du profil en base de données
+        profil = db.query(Profil).filter(Profil.utilisateur_id == current_user.id).first()
+        
+        if not profil:
+            profil = Profil(utilisateur_id=current_user.id)
+            db.add(profil)
+
+        # On remplit les nouveaux champs structurés
+        profil.nom_complet_cv = donnees.get("nom_complet_cv")
+        profil.email_cv = donnees.get("email_cv")
+        profil.telephone = donnees.get("telephone")
+        profil.adresse = donnees.get("adresse")
+        profil.titre_profil = donnees.get("titre_profil")
+        
+        # SQLAlchemy gère automatiquement la conversion dict/list vers JSONB
+        profil.experiences = donnees.get("experiences") 
+        profil.formations = donnees.get("formations")
+        profil.competences = donnees.get("competences")
+        profil.langues = donnees.get("langues")
+        
+        db.commit()
+        db.refresh(profil)
+
+        return {
+            "message": "Import et analyse réussis", 
+            "data": donnees
+        }
+
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Erreur lors de l'import : {str(e)}")
     
+    finally:
+        # Nettoyage : on supprime toujours le fichier temporaire
+        if os.path.exists(temp_path):
+            os.remove(temp_path)

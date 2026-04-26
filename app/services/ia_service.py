@@ -10,21 +10,25 @@ client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 # --- PHASE 1 : PARSING DU CV ---
 async def parser_cv_avec_ia(texte_cv: str) -> dict:
     prompt = f"""
-    Extrais les infos de ce CV en JSON ultra-structuré :
+    Analyse ce CV et extrais les infos en JSON STRICT.
+    STRUCTURE :
     {{
-        "identite": {{ "nom": "", "prenom": "", "email": "", "telephone": "", "adresse": "" }},
+        "nom_complet_cv": "Nom et Prénom trouvés sur le document",
+        "email_cv": "Email trouvé sur le document",
+        "telephone": "Téléphone",
+        "adresse": "Ville, Pays",
+        "titre_profil": "Titre pro",
         "experiences": [
-            {{ "poste": "", "entreprise": "", "lieu": "", "date_debut": "", "date_fin": "", "description": "" }}
+            {{ "poste": "", "entreprise": "", "lieu": "", "date": "ex: Oct 2023 - Présent", "description": [] }}
         ],
         "formations": [
-            {{ "diplome": "", "etablissement": "", "lieu": "", "annee": "" }}
+            {{ "diplome": "", "etablissement": "", "lieu": "", "date": "" }}
         ],
-        "competences": [],
-        "langues": []
+        "competences": "skill1, skill2",
+        "langues": ""
     }}
-    Texte : {texte_cv}
+    Texte du CV : {texte_cv}
     """
-    # Le modèle doit absolument remplir tous les champs. Ne jamais laisser de listes vides.
 
     response = client.chat.completions.create(
         model="llama-3.3-70b-versatile",
@@ -37,77 +41,113 @@ extraire_donnees_profil = parser_cv_avec_ia
 
 # --- PHASE 3 : ANALYSE ET MATCHING ---
 async def analyser_offre(contenu_offre: str, profil) -> dict:
-    profil_data = f"TITRE: {profil.titre_profil}\nSKILLS: {profil.competences}\nXP: {profil.experiences}"
+    # Correction : On définit profil_data avant de l'utiliser
+    profil_data = f"""
+    TITRE: {profil.titre_profil or 'Non spécifié'}
+    COMPÉTENCES: {profil.competences or 'Non spécifiées'}
+    EXPÉRIENCES: {profil.experiences or 'Non renseignées'}
+    """
     
-    prompt = f"""En tant qu'expert ATS (Applicant Tracking System), analyse l'offre par rapport au profil.
+    prompt = f"""En tant qu'expert ATS, analyse l'offre d'emploi par rapport au profil du candidat fourni.
+    
     OFFRE: {contenu_offre}
-    PROFIL: {profil_data}
+    
+    PROFIL DU CANDIDAT: 
+    {profil_data}
 
-    Calcule le score sur 100 selon ces critères :
-- 40 points : Compétences techniques (Hard Skills) correspondantes.
-- 30 points : Années d'expérience dans un poste similaire.
-- 20 points : Niveau d'études / Diplômes requis.
-- 10 points : Langues et Soft Skills."""
+    Tu dois impérativement répondre sous la forme d'un objet **json** valide.
+    L'objet **json** doit contenir exactement ces clés : 
+    - "titre_poste": (string) le titre du poste de l'offre
+    - "entreprise": (string) le nom de l'entreprise
+    - "score_compatibilite": (int entre 0 et 100)
+    - "points_forts": (list of strings) 3 points forts
+    - "points_manquants": (list of strings) 3 points à améliorer
+    - "mots_cles": (list of strings) 8 mots-clés de l'offre
+    - "conseil_ia": (string) un conseil stratégique
+    """
 
-    response = client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
-        messages=[{"role": "user", "content": prompt}],
-        response_format={ "type": "json_object" }
-    )
-    return json.loads(response.choices[0].message.content)
+    try:
+        response = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[{"role": "user", "content": prompt}],
+            response_format={ "type": "json_object" }
+        )
+        return json.loads(response.choices[0].message.content)
+    except Exception as e:
+        print(f"Erreur IA Matching: {e}")
+        # Retour de secours pour éviter le crash du front
+        return {
+            "titre_poste": "Erreur d'analyse",
+            "entreprise": "Inconnue",
+            "score_compatibilite": 0,
+            "points_forts": [],
+            "points_manquants": ["Erreur technique avec l'IA"],
+            "mots_cles": [],
+            "conseil_ia": "Veuillez réessayer l'analyse."
+        }
 
 # --- PHASE 4 : GÉNÉRATION DE CV PROFESSIONNEL ---
 async def generer_cv(profil, offre) -> str:
-    # On prépare les données du profil (extraites en Phase 1)
-    # On n'utilise PAS profil.utilisateur ici si on veut rester fidèle au CV importé
+    nom = getattr(profil, 'nom_complet_cv', None)
     
+    # Si nom_complet_cv est vide ou n'existe pas, on prend le nom du compte login
+    if not nom and profil.utilisateur:
+        nom = f"{profil.utilisateur.prenom} {profil.utilisateur.nom}"
+    
+    email = getattr(profil, 'email_cv', None)
+    if not email and profil.utilisateur:
+        email = profil.utilisateur.email
+
+    tel = getattr(profil, 'telephone', 'Non renseigné')
+    adr = getattr(profil, 'adresse', 'Non renseignée')
+
     prompt = f"""
-    Tu es un expert en recrutement. Rédige un CV professionnel complet.
+    Tu es un expert en recrutement et en rédaction de CV. Rédige un CV Markdown professionnel.
     
-    SOURCE DES DONNÉES (À utiliser exclusivement) :
-    - Identité et Titre : {profil.titre_profil}
-    - Expériences professionnelles : {profil.experiences}
-    - Formations et diplômes : {profil.formations}
-    - Compétences techniques : {profil.competences}
-    - Langues : {profil.langues}
+    COORDONNÉES DU CANDIDAT :
+     - NOM : {nom or 'Candidat'}
+    - EMAIL : {email or 'Non renseigné'}
+    - TEL : {tel}
+    - ADRESSE : {adr}
+    PARCOURS (Données structurées) :
+    - EXPÉRIENCES : {profil.experiences}
+    - FORMATIONS : {profil.formations}
     
-    POSTE CIBLÉ POUR L'ADAPTATION :
-    {offre.titre_poste} chez {offre.entreprise} (Mots-clés : {offre.mots_cles})
+    POSTE VISÉ : {offre.titre_poste} chez {offre.entreprise}
 
-    CONSIGNES STRICTES :
-    1. NE JAMAIS utiliser de texte entre crochets comme [Nom] ou [Date]. 
-    2. Utilise les informations de l'identité présentes dans : {profil.titre_profil}.
-    3. Reformule les expériences pour qu'elles valorisent le candidat par rapport au poste de {offre.titre_poste}.
-    4. Structure : En-tête, Résumé, Expériences, Formations, Compétences.
-    5. Formate en Markdown propre.
+    CONSIGNES :
+    1. Utilise "{nom}" en titre.
+    2. Pour CHAQUE expérience dans la liste, tu DOIS extraire et afficher : 
+       **Poste | Entreprise | Lieu | Dates**.
+    3. NE JAMAIS utiliser de crochets [ ].
+    4. Récupère les lieux et dates exacts présents dans le JSON des expériences.
     """
-
     response = client.chat.completions.create(
         model="llama-3.3-70b-versatile",
         messages=[{"role": "user", "content": prompt}],
-        temperature=0.7 # Un peu de créativité pour la reformulation
+        temperature=0.7
     )
     return response.choices[0].message.content
 
 # --- PHASE 4 : GÉNÉRATION DE LETTRE DE MOTIVATION ---
 async def generer_lettre_motivation(profil, offre) -> str:
-    identite = f"{profil.utilisateur.prenom} {profil.utilisateur.nom}"
+    identite = profil.titre_profil if profil.titre_profil else "Candidat"
     date_du_jour = datetime.now().strftime("%d %B %Y")
 
-    prompt = f"""Rédige une lettre de motivation d'expert pour {identite}.
+    prompt = f"""Rédige une lettre de motivation professionnelle en Markdown.
     
-    CIBLE : Poste de {offre.titre_poste} chez {offre.entreprise}.
-    PROFIL DU CANDIDAT : {profil.experiences} et {profil.competences}.
+    EXPÉDITEUR : {identite}
+    DESTINATAIRE : Responsable du recrutement chez {offre.entreprise}
+    POSTE : {offre.titre_poste}
     DATE : {date_du_jour}
 
-    RÈGLES D'OR :
-    1. AUCUN TEXTE ENTRE CROCHETS. Si une info manque (ex: nom du recruteur), écris "À l'attention du Responsable du Recrutement".
-    2. Utilise le nom "{identite}" pour la signature.
-    3. Structure : 
-       - MOI : Accroche percutante montrant la compréhension des besoins de {offre.entreprise}.
-       - VOUS : Pourquoi leurs projets m'intéressent.
-       - NOUS : La valeur ajoutée concrète que j'apporte.
-    4. Ton : Professionnel, déterminé et humain. Évite les phrases trop clichés.
+    CONTENU :
+    Utilise les expériences suivantes pour convaincre : {profil.experiences}
+    
+    RÈGLES :
+    - INTERDICTION de mettre des crochets [ ].
+    - Ton : Professionnel et déterminé.
+    - Signature finale : {identite}.
     """
 
     response = client.chat.completions.create(
