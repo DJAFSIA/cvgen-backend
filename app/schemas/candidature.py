@@ -1,7 +1,7 @@
 from pydantic import BaseModel, ConfigDict
 from uuid import UUID
 from datetime import datetime
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 class OffreCreate(BaseModel):
     url_source: Optional[str] = None
@@ -26,6 +26,7 @@ class CandidatureCreate(BaseModel):
 class GenerationRequest(BaseModel):
     modele_cv: str = "classique"
     ton_lettre: str = "professionnel"
+    reponses_alignement: Optional[List[Dict[str, Any]]] = None
 
 class CandidatureResponse(BaseModel):
     id: UUID

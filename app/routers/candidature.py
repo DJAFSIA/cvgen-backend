@@ -42,7 +42,8 @@ def creer_candidature(
         utilisateur_id=current_user.id,
         profil_id=profil.id,
         offre_id=offre.id,
-        statut="en_cours"
+        statut="en_cours",
+        score_compatibilite=offre.score_compatibilite
     )
     db.add(candidature)
     db.commit()
@@ -72,7 +73,11 @@ async def lancer_generation(
 
     # On appelle l'IA (le service utilisera candidature.profil.utilisateur pour l'identité)
     contenu_cv = await generer_cv(candidature.profil, candidature.offre)
-    contenu_lettre = await generer_lettre_motivation(candidature.profil, candidature.offre)
+    contenu_lettre = await generer_lettre_motivation(
+        candidature.profil,
+        candidature.offre,
+        data.reponses_alignement
+    )
 
     # 4. Sauvegarde ou mise à jour du CV
     cv_obj = db.query(CV).filter(CV.candidature_id == candidature.id).first()

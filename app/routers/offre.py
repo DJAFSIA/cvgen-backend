@@ -9,7 +9,7 @@ from app.models.offre import OffreEmploi
 from app.models.utilisateur import Utilisateur
 from app.models.profil import Profil
 from app.schemas.candidature import OffreCreate, OffreResponse
-from app.services.ia_service import analyser_offre
+from app.services.ia_service import analyser_offre, generer_questions_alignement
 from app.services.scraper_service import extraire_texte_offre_url # Import du scraper
 
 router = APIRouter()
@@ -89,6 +89,27 @@ def liste_offres(
 
 
 # --- ROUTE : OBTENIR LE DÉTAIL D'UNE OFFRE ---
+@router.post("/{offre_id}/questions-alignement")
+async def questions_alignement(
+    offre_id: str,
+    db: Session = Depends(get_db),
+    current_user: Utilisateur = Depends(get_current_user)
+):
+    profil = db.query(Profil).filter(Profil.utilisateur_id == current_user.id).first()
+    if not profil:
+        raise HTTPException(status_code=400, detail="Veuillez remplir votre profil avant de continuer.")
+
+    offre = db.query(OffreEmploi).filter(
+        OffreEmploi.id == offre_id,
+        OffreEmploi.utilisateur_id == current_user.id
+    ).first()
+
+    if not offre:
+        raise HTTPException(status_code=404, detail="Offre introuvable")
+
+    return await generer_questions_alignement(profil, offre)
+
+
 @router.get("/{offre_id}", response_model=OffreResponse)
 def get_offre(
     offre_id: str,
