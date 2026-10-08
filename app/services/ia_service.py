@@ -207,93 +207,135 @@ async def generer_questions_alignement(profil, offre) -> dict:
         }
 
 
-# --- PHASE 4 : GENERATION DE CV PROFESSIONNEL ---
-async def generer_cv(profil, offre) -> str:
+# --- PHASE 4 : GENERATION DU CV (donnees structurees) ---
+def _identite(profil) -> tuple[str, str]:
     nom = getattr(profil, "nom_complet_cv", None)
-
-    if not nom and profil.utilisateur:
-        nom = f"{profil.utilisateur.prenom} {profil.utilisateur.nom}"
-
     email = getattr(profil, "email_cv", None)
-    if not email and profil.utilisateur:
-        email = profil.utilisateur.email
+    utilisateur = getattr(profil, "utilisateur", None)
+    if not nom and utilisateur:
+        nom = f"{utilisateur.prenom} {utilisateur.nom}"
+    if not email and utilisateur:
+        email = utilisateur.email
+    return nom or "Candidat", email or ""
 
-    tel = getattr(profil, "telephone", "Non renseigne")
-    adr = getattr(profil, "adresse", "Non renseignee")
+
+async def generer_cv(profil, offre, modele: str = "classique") -> dict:
+    """Retourne un dict conforme a CVData ; le rendu est fait par les modeles HTML."""
+    nom, email = _identite(profil)
+    style = (
+        "Format ATS strict : phrases courtes, verbes d'action, chiffres quand ils existent dans le profil."
+        if modele == "ats"
+        else "Format professionnel soigne, lisible par un recruteur humain comme par un ATS."
+    )
 
     prompt = f"""
-    Tu es un expert en recrutement et en redaction de CV. Redige un CV Markdown professionnel.
+    Tu es un expert en recrutement. Construis le CV du candidat, adapte a l'offre visee,
+    sous forme d'un objet JSON STRICT (aucun texte avant ou apres, pas de Markdown).
 
-    COORDONNEES DU CANDIDAT:
-    - NOM: {nom or 'Candidat'}
-    - EMAIL: {email or 'Non renseigne'}
-    - TEL: {tel}
-    - ADRESSE: {adr}
+    COORDONNEES:
+    - nom: {nom}
+    - email: {email or "(non renseigne)"}
+    - telephone: {getattr(profil, "telephone", None) or "(non renseigne)"}
+    - adresse: {getattr(profil, "adresse", None) or "(non renseignee)"}
 
-    PARCOURS:
-    - EXPERIENCES: {profil.experiences}
-    - FORMATIONS: {profil.formations}
+    PROFIL DU CANDIDAT (seule source de verite):
+    - titre: {profil.titre_profil or "(non renseigne)"}
+    - experiences: {_json_dump(profil.experiences)}
+    - formations: {_json_dump(profil.formations)}
+    - competences: {profil.competences or "(non renseignees)"}
+    - langues: {profil.langues or "(non renseignees)"}
 
-    POSTE VISE: {offre.titre_poste} chez {offre.entreprise}
+    OFFRE VISEE: {offre.titre_poste} chez {offre.entreprise}
+    Mots-cles de l'offre: {offre.mots_cles}
+    Description:
+    {(offre.contenu_brut or "")[:6000]}
 
-    CONSIGNES:
-    1. Utilise "{nom}" en titre.
-    2. Pour chaque experience, extrais et affiche: Poste | Entreprise | Lieu | Dates.
-    3. Ne jamais utiliser de crochets [ ].
-    4. Recupere les lieux et dates exacts presents dans les experiences.
-    5. Optimise ATS: reecris les missions avec les mots-cles de l'offre ({offre.mots_cles})
-       pour montrer en quoi le parcours prepare au poste de {offre.titre_poste}.
+    STRUCTURE JSON ATTENDUE:
+    {{
+      "langue": "code ISO de la langue du CV (fr, en, es...)",
+      "labels": {{"resume": "", "experience": "", "formation": "", "competences": "", "langues": ""}},
+      "nom": "", "titre": "titre professionnel adapte au poste vise",
+      "contact": {{"email": "", "telephone": "", "adresse": ""}},
+      "resume": "2 a 3 phrases de profil orientees vers le poste",
+      "experiences": [{{"poste": "", "entreprise": "", "lieu": "", "date": "", "puces": ["", ""]}}],
+      "formations": [{{"diplome": "", "etablissement": "", "lieu": "", "date": "", "details": ""}}],
+      "competences": [{{"categorie": "", "elements": ["", ""]}}],
+      "langues": ["Langue (niveau)"]
+    }}
+
+    REGLES:
+    - Langue: ecris tout le CV dans la langue de l'offre, y compris les titres de section
+      ("labels"), par exemple Experience / Education / Skills / Languages en anglais.
+    - N'invente RIEN: ni poste, ni entreprise, ni diplome, ni chiffre, ni outil absent du profil.
+      Si une information manque, laisse la chaine vide.
+    - Recopie a l'identique les postes, entreprises, lieux et dates du profil.
+    - Reformule les missions en 3 a 5 puces par experience (jusqu'a 6 pour la plus recente),
+      en reprenant naturellement les mots-cles de l'offre quand le profil les justifie.
+    - Ordre antichronologique. Regroupe les competences par categorie, les plus pertinentes
+      pour l'offre en premier.
+    - Aucun crochet, aucun texte entre parentheses de type placeholder.
+    - {style}
     """
 
-    texte = await _complete(prompt)
-    return texte
+    texte = await _complete(prompt, max_tokens=8000)
+    return _parse_json(texte)
 
 
-# --- PHASE 4 : GENERATION DE LETTRE DE MOTIVATION ---
-async def generer_lettre_motivation(profil, offre, reponses_alignement=None) -> str:
-    nom_expediteur = profil.nom_complet_cv or f"{profil.utilisateur.prenom} {profil.utilisateur.nom}"
-    email_expediteur = profil.email_cv or profil.utilisateur.email
-    date_du_jour = datetime.now().strftime("%d %B %Y")
+# --- PHASE 4 : GENERATION DE LA LETTRE DE MOTIVATION (donnees structurees) ---
+async def generer_lettre_motivation(profil, offre, reponses_alignement=None) -> dict:
+    """Retourne un dict conforme a LettreData."""
+    nom, email = _identite(profil)
+    contact = "\n".join(x for x in (email, getattr(profil, "telephone", None), getattr(profil, "adresse", None)) if x)
+    aujourdhui = datetime.now().strftime("%Y-%m-%d")
     contexte_alignement = _json_dump(reponses_alignement or [])
 
     prompt = f"""
-    Redige une lettre de motivation "Haute Performance", personnelle et profondement alignee.
+    Redige une lettre de motivation personnelle et profondement alignee avec l'offre.
+    Reponds par un objet JSON STRICT (aucun texte avant ou apres, pas de Markdown).
 
-    EXPEDITEUR: {nom_expediteur} ({email_expediteur})
-    DESTINATAIRE: Responsable du recrutement chez {offre.entreprise}
+    EXPEDITEUR: {nom}
+    COORDONNEES (a recopier): {contact or "(aucune)"}
+    DATE DU JOUR (ISO): {aujourdhui}
+    DESTINATAIRE: equipe de recrutement de {offre.entreprise}
     POSTE: {offre.titre_poste}
-    DATE: {date_du_jour}
 
     OFFRE COMPLETE:
-    {offre.contenu_brut}
+    {(offre.contenu_brut or "")[:8000]}
 
     PROFIL:
     - Titre: {profil.titre_profil}
-    - Experiences: {profil.experiences}
-    - Formations: {profil.formations}
+    - Experiences: {_json_dump(profil.experiences)}
+    - Formations: {_json_dump(profil.formations)}
     - Competences: {profil.competences}
     - Langues: {profil.langues}
 
     REPONSES COMPLEMENTAIRES DU CANDIDAT:
     {contexte_alignement}
 
+    STRUCTURE JSON ATTENDUE:
+    {{
+      "langue": "code ISO de la langue de la lettre",
+      "expediteur_nom": "", "expediteur_contact": "",
+      "date": "date du jour ecrite selon les usages de la langue (ex: 8 octobre 2026 / October 8, 2026)",
+      "destinataire": "", "objet": "",
+      "salutation": "", "paragraphes": ["", ""],
+      "formule_finale": "", "signature": ""
+    }}
+
     REGLES:
-    - Interdiction de mettre des crochets [ ].
-    - Ton professionnel, determine, naturel, jamais artificiel.
-    - Ne pas inventer de faits, de diplomes, de chiffres ou de publications.
-    - Construire un lien explicite entre les besoins de l'offre et les experiences du candidat.
-    - Suivre cette logique:
-      1. Accroche ciblee: poste, entreprise, raison profonde de l'interet.
-      2. Experience recente ou principale: contexte, probleme, contribution, lien avec l'offre.
-      3. Experience structurante: autre projet, formation, these, stage ou realisation pertinente.
-      4. Preuves concretes: resultats, outils, responsabilites, impact.
-      5. Motivation personnelle et qualites humaines.
-      6. Conclusion sobre avec remerciement.
-    - Eviter les phrases generiques comme "votre entreprise leader dans son domaine"
-      si elles ne sont pas prouvees par l'offre.
-    - Ecrire dans la meme langue que l'offre, sauf si les reponses demandent clairement le francais.
-    - Signature finale: {nom_expediteur}.
+    - Langue: celle de l'offre, sauf si les reponses du candidat demandent clairement une autre langue.
+      Salutation et formule de politesse selon les usages de cette langue et de ce pays.
+    - N'invente aucun fait, diplome, chiffre ou publication absent du profil et des reponses.
+    - Aucun crochet ni placeholder. Ton professionnel, determine, naturel.
+    - 4 a 5 paragraphes courts, 300 a 380 mots au total, en suivant cette logique:
+      accroche ciblee (poste, entreprise, raison profonde de l'interet);
+      experience principale reliee aux besoins de l'offre;
+      autre experience, formation ou realisation pertinente;
+      preuves concretes (resultats, outils, responsabilites);
+      motivation personnelle et conclusion sobre.
+    - Evite les phrases generiques non prouvees par l'offre.
+    - signature: {nom}
     """
 
-    texte = await _complete(prompt)
-    return texte
+    texte = await _complete(prompt, max_tokens=6000)
+    return _parse_json(texte)

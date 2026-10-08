@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="{{ d.langue }}"><head><meta charset="UTF-8"><style>
+{{ base_css }}
+@page { margin: 0 0 12mm 0; }
+header { background: #243b53; color: #fff; padding: 16mm 15mm 9mm; }
+h1 { font-size: 24pt; font-weight: 700; }
+.titre { font-size: 12pt; color: #bcccdc; margin-top: 2pt; }
+.contact { margin-top: 7pt; font-size: 9pt; color: #d9e2ec; }
+.contact span + span::before { content: "   \2022   "; }
+main { padding: 6mm 15mm 0; }
+h2 { font-size: 11pt; color: #243b53; text-transform: uppercase; letter-spacing: 1.2pt; margin: 12pt 0 6pt; padding-left: 7pt; border-left: 3pt solid #2f80ed; }
+.poste { font-weight: 700; color: #102a43; }
+.sub { color: #2f80ed; font-weight: 600; font-size: 9.5pt; }
+.exp li { margin: 1.5pt 0 1.5pt 12pt; position: relative; }
+.exp li::before { content: ""; position: absolute; left: -10pt; top: 5pt; width: 4pt; height: 4pt; border-radius: 50%; background: #2f80ed; }
+.chips { display: flex; flex-wrap: wrap; gap: 4pt; margin-top: 2pt; }
+.chip { background: #e6effa; color: #243b53; border-radius: 9pt; padding: 1.5pt 7pt; font-size: 9pt; }
+.cat { font-weight: 700; font-size: 9pt; margin-top: 5pt; color: #486581; }
+</style></head><body>
+<header>
+  <h1>{{ d.nom }}</h1>
+  {% if d.titre %}<div class="titre">{{ d.titre }}</div>{% endif %}
+  <div class="contact">{% if d.contact.email %}<span>{{ d.contact.email }}</span>{% endif %}{% if d.contact.telephone %}<span>{{ d.contact.telephone }}</span>{% endif %}{% if d.contact.adresse %}<span>{{ d.contact.adresse }}</span>{% endif %}</div>
+</header>
+<main>
+{% if d.resume %}<h2>{{ d.labels.resume }}</h2><p>{{ d.resume }}</p>{% endif %}
+{% if d.experiences %}<h2>{{ d.labels.experience }}</h2>
+{% for e in d.experiences %}<div class="exp">
+  <div class="row"><span class="poste">{{ e.poste }}</span><span class="date">{{ e.date }}</span></div>
+  <div class="sub">{{ e.entreprise }}{% if e.lieu %} &middot; {{ e.lieu }}{% endif %}</div>
+  <ul>{% for p in e.puces %}<li>{{ p }}</li>{% endfor %}</ul>
+</div>{% endfor %}{% endif %}
+{% if d.formations %}<h2>{{ d.labels.formation }}</h2>
+{% for f in d.formations %}<div class="edu">
+  <div class="row"><span class="poste">{{ f.diplome }}</span><span class="date">{{ f.date }}</span></div>
+  <div class="sub">{{ f.etablissement }}{% if f.lieu %} &middot; {{ f.lieu }}{% endif %}</div>
+  {% if f.details %}<div>{{ f.details }}</div>{% endif %}
+</div>{% endfor %}{% endif %}
+{% if d.competences %}<h2>{{ d.labels.competences }}</h2>
+{% for g in d.competences %}{% if g.categorie %}<div class="cat">{{ g.categorie }}</div>{% endif %}
+<div class="chips">{% for s in g.elements %}<span class="chip">{{ s }}</span>{% endfor %}</div>{% endfor %}{% endif %}
+{% if d.langues %}<h2>{{ d.labels.langues }}</h2><div class="chips">{% for l in d.langues %}<span class="chip">{{ l }}</span>{% endfor %}</div>{% endif %}
+</main>
+</body></html>

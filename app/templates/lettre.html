@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="{{ d.langue }}"><head><meta charset="UTF-8"><style>
+{{ base_css }}
+@page { margin: 22mm 22mm; }
+html { font-size: 11pt; line-height: 1.55; }
+.top { display: flex; justify-content: space-between; gap: 20pt; margin-bottom: 22pt; }
+.nom { font-weight: 700; font-size: 12pt; }
+.pre { white-space: pre-line; }
+.meta { text-align: right; }
+.dest { margin-bottom: 16pt; }
+.objet { font-weight: 700; margin-bottom: 14pt; }
+p { margin-bottom: 9pt; text-align: justify; }
+.sign { margin-top: 18pt; font-weight: 700; }
+</style></head><body>
+<div class="top">
+  <div><div class="nom">{{ d.expediteur_nom }}</div><div class="muted pre">{{ d.expediteur_contact }}</div></div>
+  <div class="meta">{{ d.date }}</div>
+</div>
+{% if d.destinataire %}<div class="dest pre">{{ d.destinataire }}</div>{% endif %}
+{% if d.objet %}<div class="objet">{{ d.objet }}</div>{% endif %}
+{% if d.salutation %}<p>{{ d.salutation }}</p>{% endif %}
+{% for p in d.paragraphes %}<p>{{ p }}</p>{% endfor %}
+{% if d.formule_finale %}<p>{{ d.formule_finale }}</p>{% endif %}
+<div class="sign">{{ d.signature or d.expediteur_nom }}</div>
+</body></html>

@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import os
 import re
 from uuid import UUID
@@ -16,9 +17,14 @@ from app.models.utilisateur import Utilisateur
 from app.schemas.candidature import CandidatureCreate, CandidatureResponse, GenerationRequest
 from app.services.ia_service import generer_cv, generer_lettre_motivation
 from app.services.pdf_service import generer_pdf
+from app.services.document_service import (
+    rendre_cv_html, rendre_lettre_html, rendre_markdown_html, cv_en_markdown, lettre_en_markdown,
+)
+from app.schemas.document import CVData, LettreData, ModeleCV
 from app.core.rate_limit import generation_limiter
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 def _nom_sur(nom: str) -> str:
@@ -81,8 +87,8 @@ async def lancer_generation(
         raise HTTPException(status_code=404, detail="Candidature introuvable")
 
     # On appelle l'IA (le service utilisera candidature.profil.utilisateur pour l'identité)
-    contenu_cv, contenu_lettre = await asyncio.gather(
-        generer_cv(candidature.profil, candidature.offre),
+    donnees_cv, donnees_lettre = await asyncio.gather(
+        generer_cv(candidature.profil, candidature.offre, data.modele_cv),
         generer_lettre_motivation(
             candidature.profil,
             candidature.offre,
@@ -90,38 +96,39 @@ async def lancer_generation(
         ),
     )
 
-    # 4. Sauvegarde ou mise à jour du CV
+    # Normalisation des sorties du LLM (champs manquants, null, extras)
+    donnees_cv = CVData.model_validate(donnees_cv).model_dump()
+    donnees_lettre = LettreData.model_validate(donnees_lettre).model_dump()
+    contenu_cv = cv_en_markdown(donnees_cv)
+    contenu_lettre = lettre_en_markdown(donnees_lettre)
+
+    # 4. Sauvegarde ou mise a jour du CV
     cv_obj = db.query(CV).filter(CV.candidature_id == candidature.id).first()
     if not cv_obj:
-        cv_obj = CV(
-            candidature_id=candidature.id, 
-            contenu_genere=contenu_cv, 
-            modele=data.modele_cv
-        )
+        cv_obj = CV(candidature_id=candidature.id)
         db.add(cv_obj)
-    else:
-        cv_obj.contenu_genere = contenu_cv
+    cv_obj.contenu_genere = contenu_cv
+    cv_obj.donnees = donnees_cv
+    cv_obj.modele = data.modele_cv
 
-    # 5. Sauvegarde ou mise à jour de la Lettre
+    # 5. Sauvegarde ou mise a jour de la lettre
     lettre_obj = db.query(LettreMotivation).filter(LettreMotivation.candidature_id == candidature.id).first()
     if not lettre_obj:
-        lettre_obj = LettreMotivation(
-            candidature_id=candidature.id, 
-            contenu_genere=contenu_lettre, 
-            ton=data.ton_lettre
-        )
+        lettre_obj = LettreMotivation(candidature_id=candidature.id)
         db.add(lettre_obj)
-    else:
-        lettre_obj.contenu_genere = contenu_lettre
+    lettre_obj.contenu_genere = contenu_lettre
+    lettre_obj.donnees = donnees_lettre
+    lettre_obj.ton = data.ton_lettre
 
-    # 6. Mise à jour du statut final
+    # 6. Mise a jour du statut final
     candidature.statut = "generee"
     db.commit()
 
     return {
         "id": candidature.id,
         "cv": contenu_cv,
-        "lettre": contenu_lettre
+        "lettre": contenu_lettre,
+        "modele": data.modele_cv,
     }
 
 
@@ -130,7 +137,8 @@ async def lancer_generation(
 async def exporter_pdf(
     candidature_id: UUID,
     background_tasks: BackgroundTasks,
-    type_doc: str = "cv", # "cv" ou "lettre"
+    type_doc: str = "cv",  # "cv" ou "lettre"
+    modele: ModeleCV | None = None,  # change le modele de CV sans regenerer
     db: Session = Depends(get_db),
     current_user: Utilisateur = Depends(get_current_user)
 ):
@@ -141,27 +149,37 @@ async def exporter_pdf(
         Candidature.id == candidature_id,
         Candidature.utilisateur_id == current_user.id
     ).first()
-    
+
     if not candidature:
         raise HTTPException(status_code=404, detail="Candidature introuvable")
 
-    # Sélection du contenu selon le type demandé
     if type_doc == "cv" and candidature.cv:
-        contenu = candidature.cv.contenu_genere
+        doc = candidature.cv
+        html_contenu = (
+            rendre_cv_html(doc.donnees, modele or doc.modele or "classique")
+            if doc.donnees else rendre_markdown_html(doc.contenu_genere)
+        )
         nom_fichier = f"CV_{_nom_sur(current_user.nom)}.pdf"
     elif type_doc == "lettre" and candidature.lettre:
-        contenu = candidature.lettre.contenu_genere
+        doc = candidature.lettre
+        html_contenu = (
+            rendre_lettre_html(doc.donnees)
+            if doc.donnees else rendre_markdown_html(doc.contenu_genere)
+        )
         nom_fichier = f"Lettre_{_nom_sur(current_user.nom)}.pdf"
     else:
-        raise HTTPException(status_code=404, detail="Document non généré ou type inconnu.")
+        raise HTTPException(status_code=404, detail="Document non genere ou type inconnu.")
 
-    # Génération du fichier via le service PDF
-    chemin_pdf = await generer_pdf(contenu or "")
+    try:
+        chemin_pdf = await generer_pdf(html_contenu)
+    except Exception:
+        logger.exception("Echec de la generation du PDF")
+        raise HTTPException(status_code=500, detail="Impossible de generer le PDF.")
     background_tasks.add_task(os.remove, chemin_pdf)
-    
+
     return FileResponse(
-        chemin_pdf, 
-        media_type="application/pdf", 
+        chemin_pdf,
+        media_type="application/pdf",
         filename=nom_fichier
     )
 

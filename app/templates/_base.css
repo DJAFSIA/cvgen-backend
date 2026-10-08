@@ -1,0 +1,10 @@
+@page { size: A4; margin: 14mm 15mm; }
+* { box-sizing: border-box; }
+html { font-family: "Helvetica Neue", Helvetica, Arial, "Liberation Sans", sans-serif; color: #1f2933; font-size: 10pt; line-height: 1.45; }
+body { margin: 0; }
+h1, h2, h3, p, ul { margin: 0; padding: 0; }
+ul { list-style: none; }
+.exp, .edu { break-inside: avoid; margin-bottom: 9pt; }
+.row { display: flex; justify-content: space-between; gap: 12pt; align-items: baseline; }
+.muted { color: #52606d; }
+.date { white-space: nowrap; color: #52606d; font-size: 9pt; }

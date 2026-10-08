@@ -1,6 +1,6 @@
 import uuid
 from sqlalchemy import Column, String, Text, Float, DateTime, ForeignKey
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.core.database import Base
@@ -31,6 +31,7 @@ class CV(Base):
     candidature_id = Column(UUID(as_uuid=True), ForeignKey("candidatures.id"), nullable=False, unique=True)
     contenu_genere = Column(Text, nullable=True)
     modele = Column(String(100), default="classique")
+    donnees = Column(JSONB, nullable=True)
     fichier_pdf_url = Column(String(500), nullable=True)
     date_generation = Column(DateTime(timezone=True), server_default=func.now())
 
@@ -44,6 +45,7 @@ class LettreMotivation(Base):
     candidature_id = Column(UUID(as_uuid=True), ForeignKey("candidatures.id"), nullable=False, unique=True)
     contenu_genere = Column(Text, nullable=True)
     ton = Column(String(100), default="professionnel")
+    donnees = Column(JSONB, nullable=True)
     fichier_pdf_url = Column(String(500), nullable=True)
     date_generation = Column(DateTime(timezone=True), server_default=func.now())
 

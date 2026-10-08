@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="{{ d.langue }}"><head><meta charset="UTF-8"><style>
+{{ base_css }}
+html { font-family: Arial, "Liberation Sans", Helvetica, sans-serif; color: #000; font-size: 10.5pt; }
+h1 { font-size: 20pt; }
+.contact { font-size: 10pt; margin: 2pt 0 6pt; }
+h2 { font-size: 11pt; text-transform: uppercase; border-bottom: 1pt solid #000; margin: 11pt 0 5pt; padding-bottom: 1pt; }
+.poste { font-weight: 700; }
+.exp li { margin: 1pt 0 1pt 14pt; list-style: disc; display: list-item; }
+.date { color: #000; }
+</style></head><body>
+<h1>{{ d.nom }}</h1>
+<div class="contact">{{ [d.contact.email, d.contact.telephone, d.contact.adresse] | select | join(" | ") }}</div>
+{% if d.titre %}<div class="poste">{{ d.titre }}</div>{% endif %}
+{% if d.resume %}<h2>{{ d.labels.resume }}</h2><p>{{ d.resume }}</p>{% endif %}
+{% if d.experiences %}<h2>{{ d.labels.experience }}</h2>
+{% for e in d.experiences %}<div class="exp">
+  <div class="row"><span class="poste">{{ e.poste }}, {{ e.entreprise }}{% if e.lieu %}, {{ e.lieu }}{% endif %}</span><span class="date">{{ e.date }}</span></div>
+  <ul>{% for p in e.puces %}<li>{{ p }}</li>{% endfor %}</ul>
+</div>{% endfor %}{% endif %}
+{% if d.formations %}<h2>{{ d.labels.formation }}</h2>
+{% for f in d.formations %}<div class="edu">
+  <div class="row"><span class="poste">{{ f.diplome }}, {{ f.etablissement }}{% if f.lieu %}, {{ f.lieu }}{% endif %}</span><span class="date">{{ f.date }}</span></div>
+  {% if f.details %}<div>{{ f.details }}</div>{% endif %}
+</div>{% endfor %}{% endif %}
+{% if d.competences %}<h2>{{ d.labels.competences }}</h2>
+{% for g in d.competences %}<p>{% if g.categorie %}<b>{{ g.categorie }}:</b> {% endif %}{{ g.elements | join(", ") }}</p>{% endfor %}{% endif %}
+{% if d.langues %}<h2>{{ d.labels.langues }}</h2><p>{{ d.langues | join(", ") }}</p>{% endif %}
+</body></html>
