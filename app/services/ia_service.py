@@ -1,11 +1,10 @@
-from groq import Groq
+from groq import AsyncGroq
 import json
-import os
 from datetime import datetime
-from dotenv import load_dotenv
+from app.core.config import settings
 
-load_dotenv()
-client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+client = AsyncGroq(api_key=settings.GROQ_API_KEY)
+MODEL = settings.GROQ_MODEL
 
 
 def _json_dump(data) -> str:
@@ -38,8 +37,8 @@ async def parser_cv_avec_ia(texte_cv: str) -> dict:
     {texte_cv}
     """
 
-    response = client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
+    response = await client.chat.completions.create(
+        model=MODEL,
         messages=[{"role": "user", "content": prompt}],
         response_format={"type": "json_object"},
     )
@@ -80,8 +79,8 @@ async def analyser_offre(contenu_offre: str, profil) -> dict:
     """
 
     try:
-        response = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+        response = await client.chat.completions.create(
+            model=MODEL,
             messages=[{"role": "user", "content": prompt}],
             response_format={"type": "json_object"},
         )
@@ -150,8 +149,8 @@ async def generer_questions_alignement(profil, offre) -> dict:
     """
 
     try:
-        response = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+        response = await client.chat.completions.create(
+            model=MODEL,
             messages=[{"role": "user", "content": prompt}],
             response_format={"type": "json_object"},
             temperature=0.35,
@@ -229,8 +228,8 @@ async def generer_cv(profil, offre) -> str:
        pour montrer en quoi le parcours prepare au poste de {offre.titre_poste}.
     """
 
-    response = client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
+    response = await client.chat.completions.create(
+        model=MODEL,
         messages=[{"role": "user", "content": prompt}],
         temperature=0.7,
     )
@@ -283,8 +282,8 @@ async def generer_lettre_motivation(profil, offre, reponses_alignement=None) -> 
     - Signature finale: {nom_expediteur}.
     """
 
-    response = client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
+    response = await client.chat.completions.create(
+        model=MODEL,
         messages=[{"role": "user", "content": prompt}],
         temperature=0.7,
     )

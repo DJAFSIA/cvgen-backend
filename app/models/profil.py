@@ -1,6 +1,6 @@
 import uuid
-from sqlalchemy import Column, String, Text, DateTime, ForeignKey, JSON
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import Column, String, Text, DateTime, ForeignKey
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.core.database import Base
@@ -15,8 +15,8 @@ class Profil(Base):
     nom_complet_cv = Column(String, nullable=True)
     email_cv = Column(String, nullable=True)
     titre_profil = Column(String(200), nullable=True)
-    experiences = Column(JSON, nullable=True)
-    formations = Column(JSON, nullable=True)
+    experiences = Column(JSONB, nullable=True)
+    formations = Column(JSONB, nullable=True)
     competences = Column(Text, nullable=True)
     langues = Column(String(500), nullable=True)
     cv_importe_url = Column(String(500), nullable=True)
