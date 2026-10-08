@@ -8,8 +8,9 @@ class Settings(BaseSettings):
     SECRET_KEY: str
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
-    GROQ_API_KEY: str
-    GROQ_MODEL: str = "llama-3.3-70b-versatile"
+    # Vide = le SDK Anthropic cherche les identifiants dans l'environnement
+    ANTHROPIC_API_KEY: str = ""
+    ANTHROPIC_MODEL: str = "claude-opus-5-5"
     CORS_ORIGINS: str = "http://localhost:5173,http://localhost:3000"
 
     @property

@@ -1,10 +1,50 @@
-from groq import AsyncGroq
 import json
+import re
 from datetime import datetime
+from anthropic import AsyncAnthropic
 from app.core.config import settings
 
-client = AsyncGroq(api_key=settings.GROQ_API_KEY)
-MODEL = settings.GROQ_MODEL
+# Si ANTHROPIC_API_KEY est vide, le SDK retrouve les identifiants dans l'environnement
+client = AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY or None)
+MODEL = settings.ANTHROPIC_MODEL
+
+# Modeles pour lesquels le repli serveur automatique en cas de refus est disponible
+_FALLBACK_PREFIXES = ("claude-opus-5-5", "claude-sonnet-5-5", "claude-fable-5")
+
+
+class IAError(Exception):
+    """Echec d'un appel IA (refus, reponse vide ou JSON invalide)."""
+
+
+async def _complete(prompt: str, *, effort: str = "medium", max_tokens: int = 8000) -> str:
+    kwargs = {}
+    if MODEL.startswith(_FALLBACK_PREFIXES):
+        kwargs = {"betas": ["server-side-fallback-2026-07-01"], "fallbacks": "default"}
+
+    response = await client.beta.messages.create(
+        model=MODEL,
+        max_tokens=max_tokens,
+        output_config={"effort": effort},
+        messages=[{"role": "user", "content": prompt}],
+        **kwargs,
+    )
+    if response.stop_reason == "refusal":
+        raise IAError("Requete refusee par le modele")
+    texte = "".join(b.text for b in response.content if b.type == "text").strip()
+    if not texte:
+        raise IAError("Reponse vide du modele")
+    return texte
+
+
+def _parse_json(texte: str) -> dict:
+    """Extrait un objet JSON d'une reponse, meme entouree de texte ou de balises ```."""
+    debut, fin = texte.find("{"), texte.rfind("}")
+    if debut == -1 or fin <= debut:
+        raise IAError("Aucun JSON dans la reponse du modele")
+    try:
+        return json.loads(texte[debut:fin + 1])
+    except json.JSONDecodeError as e:
+        raise IAError(f"JSON invalide: {e}") from e
 
 
 def _json_dump(data) -> str:
@@ -37,12 +77,8 @@ async def parser_cv_avec_ia(texte_cv: str) -> dict:
     {texte_cv}
     """
 
-    response = await client.chat.completions.create(
-        model=MODEL,
-        messages=[{"role": "user", "content": prompt}],
-        response_format={"type": "json_object"},
-    )
-    return json.loads(response.choices[0].message.content)
+    texte = await _complete(prompt)
+    return _parse_json(texte)
 
 
 extraire_donnees_profil = parser_cv_avec_ia
@@ -79,12 +115,8 @@ async def analyser_offre(contenu_offre: str, profil) -> dict:
     """
 
     try:
-        response = await client.chat.completions.create(
-            model=MODEL,
-            messages=[{"role": "user", "content": prompt}],
-            response_format={"type": "json_object"},
-        )
-        return json.loads(response.choices[0].message.content)
+        texte = await _complete(prompt)
+        return _parse_json(texte)
     except Exception as e:
         print(f"Erreur IA Matching: {e}")
         return {
@@ -149,13 +181,8 @@ async def generer_questions_alignement(profil, offre) -> dict:
     """
 
     try:
-        response = await client.chat.completions.create(
-            model=MODEL,
-            messages=[{"role": "user", "content": prompt}],
-            response_format={"type": "json_object"},
-            temperature=0.35,
-        )
-        data = json.loads(response.choices[0].message.content)
+        texte = await _complete(prompt)
+        data = _parse_json(texte)
         questions = data.get("questions", [])
         if not questions:
             raise ValueError("Aucune question generee")
@@ -228,12 +255,8 @@ async def generer_cv(profil, offre) -> str:
        pour montrer en quoi le parcours prepare au poste de {offre.titre_poste}.
     """
 
-    response = await client.chat.completions.create(
-        model=MODEL,
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.7,
-    )
-    return response.choices[0].message.content
+    texte = await _complete(prompt)
+    return texte
 
 
 # --- PHASE 4 : GENERATION DE LETTRE DE MOTIVATION ---
@@ -282,9 +305,5 @@ async def generer_lettre_motivation(profil, offre, reponses_alignement=None) -> 
     - Signature finale: {nom_expediteur}.
     """
 
-    response = await client.chat.completions.create(
-        model=MODEL,
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.7,
-    )
-    return response.choices[0].message.content
+    texte = await _complete(prompt)
+    return texte
