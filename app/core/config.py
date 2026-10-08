@@ -16,10 +16,16 @@ class Settings(BaseSettings):
     ANTHROPIC_API_KEY: str = ""
     ANTHROPIC_MODEL: str = "claude-opus-5-5"
     GEMINI_API_KEY: str = ""
-    GEMINI_MODEL: str = "gemini-2.5-flash"
+    GEMINI_MODEL: str = "gemini-3.5-flash"
+    # Modeles essayes dans l'ordre si le principal est surcharge ou indisponible
+    GEMINI_FALLBACK_MODELS: str = "gemini-3.1-flash-lite,gemini-3.8-flash"
     GROQ_API_KEY: str = ""
     GROQ_MODEL: str = "llama-3.3-70b-versatile"
     CORS_ORIGINS: str = "http://localhost:5173,http://localhost:3000"
+
+    @property
+    def gemini_fallback_list(self) -> list[str]:
+        return [m.strip() for m in self.GEMINI_FALLBACK_MODELS.split(",") if m.strip()]
 
     @property
     def cors_origins_list(self) -> list[str]:

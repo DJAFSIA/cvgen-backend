@@ -77,43 +77,57 @@ async def _groq_complete(prompt: str, max_tokens: int) -> str:
 
 
 # --- Google Gemini (palier gratuit AI Studio) --------------------------------
+async def _gemini_une_tentative(client: httpx.AsyncClient, model: str, body: dict) -> httpx.Response:
+    """Appelle un modele, avec une nouvelle tentative sur les erreurs temporaires."""
+    headers = {"x-goog-api-key": settings.GEMINI_API_KEY}
+    for tentative in range(2):
+        try:
+            response = await client.post(_GEMINI_URL.format(model=model), json=body, headers=headers)
+        except httpx.HTTPError as e:
+            logger.error("Gemini injoignable: %s", e)
+            raise IAError("Fournisseur d'IA injoignable") from e
+        if response.status_code in _RETRY_STATUS and tentative == 0:
+            await asyncio.sleep(2)
+            continue
+        return response
+    return response
+
+
 async def _gemini_complete(prompt: str, max_tokens: int) -> str:
     if not settings.GEMINI_API_KEY:
         logger.error("GEMINI_API_KEY manquante")
         raise IAError("Cle Gemini manquante")
-    model = settings.GEMINI_MODEL
-    generation = {
-        "maxOutputTokens": max_tokens,
-        "temperature": 0.4,
-        "responseMimeType": "application/json",
+    # Les modeles recents depensent une partie du budget de sortie en raisonnement interne
+    body = {
+        "contents": [{"role": "user", "parts": [{"text": prompt}]}],
+        "generationConfig": {
+            "maxOutputTokens": max_tokens + 4000,
+            "temperature": 0.4,
+            "responseMimeType": "application/json",
+        },
     }
-    if "2.5-flash" in model:
-        # Sans raisonnement interne : plus rapide, et les tokens vont a la reponse
-        generation["thinkingConfig"] = {"thinkingBudget": 0}
-    body = {"contents": [{"role": "user", "parts": [{"text": prompt}]}], "generationConfig": generation}
-    headers = {"x-goog-api-key": settings.GEMINI_API_KEY}
+    modeles = [settings.GEMINI_MODEL, *settings.gemini_fallback_list]
 
     async with httpx.AsyncClient(timeout=120) as client:
-        for tentative in range(3):
-            try:
-                response = await client.post(_GEMINI_URL.format(model=model), json=body, headers=headers)
-            except httpx.HTTPError as e:
-                logger.error("Gemini injoignable: %s", e)
-                raise IAError("Fournisseur d'IA injoignable") from e
-            if response.status_code in _RETRY_STATUS and tentative < 2:
-                await asyncio.sleep(2 * (tentative + 1))
-                continue
-            break
+        for model in modeles:
+            response = await _gemini_une_tentative(client, model, body)
+            if response.status_code == 200:
+                break
+            logger.warning("Gemini %s: HTTP %s %s", model, response.status_code, response.text[:200])
+            # Modele surcharge, retire ou quota atteint : on passe au suivant
+            if response.status_code not in _RETRY_STATUS | {404}:
+                break
+        else:
+            raise IAError(f"Erreur du fournisseur d'IA (HTTP {response.status_code})")
 
     if response.status_code != 200:
         logger.error("Erreur API Gemini %s: %s", response.status_code, response.text[:400])
         raise IAError(f"Erreur du fournisseur d'IA (HTTP {response.status_code})")
-    data = response.json()
-    candidats = data.get("candidates") or []
+    candidats = response.json().get("candidates") or []
     if not candidats:
         raise IAError("Requete bloquee par le modele")
     parties = (candidats[0].get("content") or {}).get("parts") or []
-    return "".join(p.get("text", "") for p in parties)
+    return "".join(p.get("text", "") for p in parties if not p.get("thought"))
 
 
 # --- Point d'entree ----------------------------------------------------------

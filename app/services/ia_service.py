@@ -223,7 +223,7 @@ async def generer_cv(profil, offre, modele: str = "classique") -> dict:
     {{
       "langue": "code ISO de la langue du CV (fr, en, es...)",
       "labels": {{"resume": "", "experience": "", "formation": "", "competences": "", "langues": ""}},
-      "nom": "", "titre": "titre professionnel adapte au poste vise",
+      "nom": "", "titre": "titre professionnel du candidat, tel que dans son profil",
       "contact": {{"email": "", "telephone": "", "adresse": ""}},
       "resume": "2 a 3 phrases de profil orientees vers le poste",
       "experiences": [{{"poste": "", "entreprise": "", "lieu": "", "date": "", "puces": ["", ""]}}],
@@ -238,6 +238,12 @@ async def generer_cv(profil, offre, modele: str = "classique") -> dict:
     - N'invente RIEN: ni poste, ni entreprise, ni diplome, ni chiffre, ni outil absent du profil.
       Si une information manque, laisse la chaine vide.
     - Recopie a l'identique les postes, entreprises, lieux et dates du profil.
+    - Le titre du CV reprend celui du profil : ne l'eleve jamais en niveau (pas de "Senior", "Lead",
+      "Manager" s'il n'y figure pas), et ne le remplace pas par l'intitule de l'offre.
+    - N'attribue un outil, une technologie ou un resultat a un poste precis que si la description de
+      ce poste dans le profil le dit. Les competences listees sans contexte vont uniquement dans la
+      section competences.
+    - Ne gonfle pas les niveaux (pas de "expert", "avance") sans source dans le profil.
     - Reformule les missions en 3 a 5 puces par experience (jusqu'a 6 pour la plus recente),
       en reprenant naturellement les mots-cles de l'offre quand le profil les justifie.
     - Ordre antichronologique. Regroupe les competences par categorie, les plus pertinentes
@@ -295,6 +301,9 @@ async def generer_lettre_motivation(profil, offre, reponses_alignement=None) -> 
     - Langue: celle de l'offre, sauf si les reponses du candidat demandent clairement une autre langue.
       Salutation et formule de politesse selon les usages de cette langue et de ce pays.
     - N'invente aucun fait, diplome, chiffre ou publication absent du profil et des reponses.
+    - N'affirme jamais une connaissance prealable de l'entreprise ("j'ai suivi vos travaux", "votre
+      plateforme", etc.) sauf si l'offre ou les reponses du candidat le permettent. N'exagere pas
+      les niveaux ("expert", "avance") sans source.
     - Aucun crochet ni placeholder. Ton professionnel, determine, naturel.
     - 4 a 5 paragraphes courts, 300 a 380 mots au total, en suivant cette logique:
       accroche ciblee (poste, entreprise, raison profonde de l'interet);
