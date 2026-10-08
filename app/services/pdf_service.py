@@ -4,6 +4,7 @@ import os
 import shutil
 import subprocess
 import tempfile
+import threading
 import time
 from pathlib import Path
 
@@ -24,10 +25,38 @@ def _refuser_ressource(url, *args, **kwargs):
     raise ValueError("Chargement de ressources externes interdit")
 
 
-def _pdf_weasyprint(html_contenu: str, chemin: str) -> None:
-    from weasyprint import HTML
+_weasyprint_lock = threading.Lock()
+_weasyprint_html = None  # classe HTML de WeasyPrint, ou False si indisponible
+_weasyprint_teste = False
 
-    HTML(string=html_contenu, url_fetcher=_refuser_ressource).write_pdf(chemin)
+
+def _charger_weasyprint():
+    """Importe WeasyPrint une seule fois, de facon sure entre threads.
+
+    Quand ses bibliotheques natives (pango/gobject) manquent, l'import echoue et laisse un
+    module a moitie charge : des imports concurrents levaient alors d'autres erreurs
+    (NameError...). On tranche une fois pour toutes et on memorise le resultat.
+    """
+    global _weasyprint_html, _weasyprint_teste
+    with _weasyprint_lock:
+        if not _weasyprint_teste:
+            _weasyprint_teste = True
+            try:
+                from weasyprint import HTML
+                _weasyprint_html = HTML
+            except Exception as e:  # OSError, ImportError, NameError selon l'etat de l'import
+                logger.warning("WeasyPrint indisponible (%s), repli sur le navigateur headless", type(e).__name__)
+                _weasyprint_html = False
+        return _weasyprint_html
+
+
+def _pdf_weasyprint(html_contenu: str, chemin: str) -> bool:
+    """Retourne False si WeasyPrint n'est pas utilisable sur cette machine."""
+    html_cls = _charger_weasyprint()
+    if not html_cls:
+        return False
+    html_cls(string=html_contenu, url_fetcher=_refuser_ressource).write_pdf(chemin)
+    return True
 
 
 def _trouver_navigateur() -> str | None:
@@ -71,11 +100,7 @@ def _html_vers_pdf(html_contenu: str) -> str:
     fd, chemin = tempfile.mkstemp(suffix=".pdf")
     os.close(fd)
     try:
-        try:
-            _pdf_weasyprint(html_contenu, chemin)
-        except OSError:
-            # Bibliotheques natives (pango/gobject) introuvables
-            logger.warning("WeasyPrint indisponible, repli sur le navigateur headless")
+        if not _pdf_weasyprint(html_contenu, chemin):
             _pdf_navigateur(html_contenu, chemin)
         if os.path.getsize(chemin) == 0:
             raise RuntimeError("PDF vide genere")
