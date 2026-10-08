@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.core.database import get_db
+from app.core.rate_limit import login_limiter, inscription_limiter
 from app.core.security import hash_password, verify_password, create_access_token, get_current_user
 from app.models.utilisateur import Utilisateur
 from app.models.profil import Profil
@@ -8,7 +9,7 @@ from app.schemas.utilisateur import UtilisateurCreate, UtilisateurLogin, Token, 
 
 router = APIRouter()
 
-@router.post("/inscription", response_model=Token, status_code=201)
+@router.post("/inscription", response_model=Token, status_code=201, dependencies=[inscription_limiter.by_ip()])
 def inscription(data: UtilisateurCreate, db: Session = Depends(get_db)):
     existant = db.query(Utilisateur).filter(Utilisateur.email == data.email).first()
     if existant:
@@ -32,7 +33,7 @@ def inscription(data: UtilisateurCreate, db: Session = Depends(get_db)):
     return Token(access_token=token, utilisateur=utilisateur)
 
 
-@router.post("/login", response_model=Token)
+@router.post("/login", response_model=Token, dependencies=[login_limiter.by_ip()])
 def login(data: UtilisateurLogin, db: Session = Depends(get_db)):
     utilisateur = db.query(Utilisateur).filter(Utilisateur.email == data.email).first()
     if not utilisateur or not verify_password(data.mot_de_passe, utilisateur.mot_de_passe):

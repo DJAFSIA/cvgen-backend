@@ -1,50 +1,48 @@
+import asyncio
+import logging
+import html
 import os
 import tempfile
 import fitz 
 
-async def generer_pdf(contenu_texte: str, nom_fichier: str) -> str:
+def _refuser_ressource(url, *args, **kwargs):
+    raise ValueError("Chargement de ressources externes interdit")
+
+
+def _generer_pdf_sync(contenu_texte: str) -> str:
+    from weasyprint import HTML
+
+    # Le contenu vient de l'IA (et indirectement d'une offre non fiable) : on l'echappe
+    # et on interdit tout chargement de ressource (file://, http://...).
+    corps = html.escape(contenu_texte).replace("\n", "<br>")
+    html_contenu = f"""
+    <!DOCTYPE html>
+    <html lang="fr">
+    <head>
+      <meta charset="UTF-8">
+      <style>
+        body {{ font-family: Arial, sans-serif; font-size: 12px; line-height: 1.6; color: #333; margin: 40px; }}
+        .section {{ margin-bottom: 18px; }}
+      </style>
+    </head>
+    <body><div class="section">{corps}</div></body>
+    </html>
+    """
+    fd, chemin = tempfile.mkstemp(suffix=".pdf")
+    os.close(fd)
     try:
-        from weasyprint import HTML
+        HTML(string=html_contenu, url_fetcher=_refuser_ressource).write_pdf(chemin)
+    except Exception:
+        os.remove(chemin)
+        raise
+    return chemin
 
-        html_contenu = f"""
-        <!DOCTYPE html>
-        <html lang="fr">
-        <head>
-          <meta charset="UTF-8">
-          <style>
-            body {{
-              font-family: Arial, sans-serif;
-              font-size: 12px;
-              line-height: 1.6;
-              color: #333;
-              margin: 40px;
-            }}
-            h1 {{ font-size: 20px; color: #2c3e50; margin-bottom: 4px; }}
-            h2 {{ font-size: 15px; color: #534AB7; border-bottom: 1px solid #eee; padding-bottom: 4px; }}
-            h3 {{ font-size: 13px; color: #333; }}
-            p {{ margin: 6px 0; }}
-            .section {{ margin-bottom: 18px; }}
-          </style>
-        </head>
-        <body>
-          <div class="section">
-            {contenu_texte.replace(chr(10), '<br>')}
-          </div>
-        </body>
-        </html>
-        """
 
-        dossier_tmp = tempfile.gettempdir()
-        chemin = os.path.join(dossier_tmp, nom_fichier)
-        HTML(string=html_contenu).write_pdf(chemin)
-        return chemin
+async def generer_pdf(contenu_texte: str) -> str:
+    """Genere un PDF dans un fichier temporaire unique ; l'appelant doit le supprimer."""
+    return await asyncio.to_thread(_generer_pdf_sync, contenu_texte)
 
-    except ImportError:
-        raise RuntimeError(
-            "WeasyPrint n'est pas installé. "
-            "Exécutez : pip install weasyprint"
-        )
-    
+
 def extraire_texte_du_pdf(chemin_fichier: str) -> str:
     """Extrait le texte brut d'un fichier PDF pour l'analyse IA."""
     try:
@@ -54,5 +52,5 @@ def extraire_texte_du_pdf(chemin_fichier: str) -> str:
             texte += page.get_text()
         return texte
     except Exception as e:
-        print(f"Erreur lors de la lecture du PDF : {e}")
+        logger.warning("Erreur lors de la lecture du PDF : %s", e)
         return ""       

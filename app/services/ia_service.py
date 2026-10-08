@@ -1,4 +1,5 @@
 import json
+import logging
 import re
 from datetime import datetime
 from anthropic import AsyncAnthropic
@@ -10,6 +11,7 @@ MODEL = settings.ANTHROPIC_MODEL
 
 # Modeles pour lesquels le repli serveur automatique en cas de refus est disponible
 _FALLBACK_PREFIXES = ("claude-opus-5-5", "claude-sonnet-5-5", "claude-fable-5")
+logger = logging.getLogger(__name__)
 
 
 class IAError(Exception):
@@ -114,20 +116,8 @@ async def analyser_offre(contenu_offre: str, profil) -> dict:
     - "conseil_ia": string, conseil strategique concret pour renforcer la candidature
     """
 
-    try:
-        texte = await _complete(prompt)
-        return _parse_json(texte)
-    except Exception as e:
-        print(f"Erreur IA Matching: {e}")
-        return {
-            "titre_poste": "Erreur d'analyse",
-            "entreprise": "Inconnue",
-            "score_compatibilite": 0,
-            "points_forts": [],
-            "points_manquants": ["Erreur technique avec l'IA"],
-            "mots_cles": [],
-            "conseil_ia": "Veuillez reessayer l'analyse.",
-        }
+    texte = await _complete(prompt)
+    return _parse_json(texte)
 
 
 async def generer_questions_alignement(profil, offre) -> dict:
@@ -191,7 +181,7 @@ async def generer_questions_alignement(profil, offre) -> dict:
             "questions": questions[:5],
         }
     except Exception as e:
-        print(f"Erreur IA Questions Alignement: {e}")
+        logger.warning("Erreur IA questions alignement: %s", e)
         return {
             "diagnostic": "Quelques precisions aideront a rendre la lettre plus personnelle et convaincante.",
             "questions": [

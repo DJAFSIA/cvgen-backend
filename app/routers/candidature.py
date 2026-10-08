@@ -1,8 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+import asyncio
+import os
+import re
+from uuid import UUID
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session, joinedload # Import de joinedload ajouté
 from typing import List
-import os
 
 from app.core.database import get_db
 from app.core.security import get_current_user
@@ -13,8 +16,14 @@ from app.models.utilisateur import Utilisateur
 from app.schemas.candidature import CandidatureCreate, CandidatureResponse, GenerationRequest
 from app.services.ia_service import generer_cv, generer_lettre_motivation
 from app.services.pdf_service import generer_pdf
+from app.core.rate_limit import generation_limiter
 
 router = APIRouter()
+
+
+def _nom_sur(nom: str) -> str:
+    """Nom utilisable dans un nom de fichier et un en-tete HTTP."""
+    return re.sub(r"[^A-Za-z0-9_-]+", "_", nom).strip("_") or "document"
 
 # 1. CRÉER UNE CANDIDATURE (Lier une offre à un profil)
 @router.post("/", response_model=CandidatureResponse, status_code=201)
@@ -52,9 +61,9 @@ def creer_candidature(
 
 
 # 2. GÉNÉRER LES DOCUMENTS (Appel IA)
-@router.post("/{candidature_id}/generer")
+@router.post("/{candidature_id}/generer", dependencies=[generation_limiter.by_user()])
 async def lancer_generation(
-    candidature_id: str,
+    candidature_id: UUID,
     data: GenerationRequest,
     db: Session = Depends(get_db),
     current_user: Utilisateur = Depends(get_current_user)
@@ -72,11 +81,13 @@ async def lancer_generation(
         raise HTTPException(status_code=404, detail="Candidature introuvable")
 
     # On appelle l'IA (le service utilisera candidature.profil.utilisateur pour l'identité)
-    contenu_cv = await generer_cv(candidature.profil, candidature.offre)
-    contenu_lettre = await generer_lettre_motivation(
-        candidature.profil,
-        candidature.offre,
-        data.reponses_alignement
+    contenu_cv, contenu_lettre = await asyncio.gather(
+        generer_cv(candidature.profil, candidature.offre),
+        generer_lettre_motivation(
+            candidature.profil,
+            candidature.offre,
+            data.reponses_alignement
+        ),
     )
 
     # 4. Sauvegarde ou mise à jour du CV
@@ -117,7 +128,8 @@ async def lancer_generation(
 # 3. EXPORTER EN PDF (Appel WeasyPrint)
 @router.get("/{candidature_id}/export-pdf")
 async def exporter_pdf(
-    candidature_id: str,
+    candidature_id: UUID,
+    background_tasks: BackgroundTasks,
     type_doc: str = "cv", # "cv" ou "lettre"
     db: Session = Depends(get_db),
     current_user: Utilisateur = Depends(get_current_user)
@@ -136,15 +148,16 @@ async def exporter_pdf(
     # Sélection du contenu selon le type demandé
     if type_doc == "cv" and candidature.cv:
         contenu = candidature.cv.contenu_genere
-        nom_fichier = f"CV_{current_user.nom}.pdf"
+        nom_fichier = f"CV_{_nom_sur(current_user.nom)}.pdf"
     elif type_doc == "lettre" and candidature.lettre:
         contenu = candidature.lettre.contenu_genere
-        nom_fichier = f"Lettre_{current_user.nom}.pdf"
+        nom_fichier = f"Lettre_{_nom_sur(current_user.nom)}.pdf"
     else:
         raise HTTPException(status_code=404, detail="Document non généré ou type inconnu.")
 
     # Génération du fichier via le service PDF
-    chemin_pdf = await generer_pdf(contenu, nom_fichier)
+    chemin_pdf = await generer_pdf(contenu or "")
+    background_tasks.add_task(os.remove, chemin_pdf)
     
     return FileResponse(
         chemin_pdf, 

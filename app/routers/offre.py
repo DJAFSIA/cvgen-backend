@@ -1,3 +1,4 @@
+from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
@@ -10,7 +11,8 @@ from app.models.utilisateur import Utilisateur
 from app.models.profil import Profil
 from app.schemas.candidature import OffreCreate, OffreResponse
 from app.services.ia_service import analyser_offre, generer_questions_alignement
-from app.services.scraper_service import extraire_texte_offre_url # Import du scraper
+from app.services.scraper_service import extraire_texte_offre_url, ScrapingError
+from app.core.rate_limit import extraction_limiter, analyse_limiter
 
 router = APIRouter()
 
@@ -19,7 +21,7 @@ class URLRequest(BaseModel):
     url: str
 
 # --- NOUVELLE ROUTE : EXTRACTION AUTOMATIQUE (PHASE 2) ---
-@router.post("/extraire")
+@router.post("/extraire", dependencies=[extraction_limiter.by_user()])
 async def extraire_offre(
     request: URLRequest,
     current_user: Utilisateur = Depends(get_current_user)
@@ -27,21 +29,20 @@ async def extraire_offre(
     """
     Prend une URL, extrait le texte de l'offre et le renvoie au frontend.
     """
-    texte = await extraire_texte_offre_url(request.url)
-    
-    if texte.startswith("Erreur"):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, 
-            detail=texte
-        )
-        
+    try:
+        texte = await extraire_texte_offre_url(request.url)
+    except ScrapingError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
     return {"contenu": texte}
 
 
 #  SOUMISSION ET ANALYSE IA 
-@router.post("/", response_model=OffreResponse)
+@router.post("/", response_model=OffreResponse, dependencies=[analyse_limiter.by_user()])
 async def soumettre_offre(data: OffreCreate, db: Session = Depends(get_db), current_user = Depends(get_current_user)):
     profil = db.query(Profil).filter(Profil.utilisateur_id == current_user.id).first()
+    if not profil:
+        raise HTTPException(status_code=400, detail="Veuillez remplir votre profil avant d'analyser une offre.")
     
     # Appel de l'IA
     analyse = await analyser_offre(data.contenu_brut, profil)
@@ -89,9 +90,9 @@ def liste_offres(
 
 
 # --- ROUTE : OBTENIR LE DÉTAIL D'UNE OFFRE ---
-@router.post("/{offre_id}/questions-alignement")
+@router.post("/{offre_id}/questions-alignement", dependencies=[analyse_limiter.by_user()])
 async def questions_alignement(
-    offre_id: str,
+    offre_id: UUID,
     db: Session = Depends(get_db),
     current_user: Utilisateur = Depends(get_current_user)
 ):
@@ -112,7 +113,7 @@ async def questions_alignement(
 
 @router.get("/{offre_id}", response_model=OffreResponse)
 def get_offre(
-    offre_id: str,
+    offre_id: UUID,
     db: Session = Depends(get_db),
     current_user: Utilisateur = Depends(get_current_user)
 ):

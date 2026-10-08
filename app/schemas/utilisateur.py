@@ -1,17 +1,18 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 from uuid import UUID
 from datetime import datetime
 from typing import Optional
 
 class UtilisateurCreate(BaseModel):
-    nom: str
-    prenom: str
+    nom: str = Field(min_length=1, max_length=100)
+    prenom: str = Field(min_length=1, max_length=100)
     email: EmailStr
-    mot_de_passe: str
+    # bcrypt ne prend en compte que les 72 premiers octets
+    mot_de_passe: str = Field(min_length=8, max_length=72)
 
 class UtilisateurLogin(BaseModel):
     email: EmailStr
-    mot_de_passe: str
+    mot_de_passe: str = Field(max_length=72)
 
 class UtilisateurResponse(BaseModel):
     id: UUID
