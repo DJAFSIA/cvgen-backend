@@ -23,6 +23,14 @@ class Candidature(Base):
     cv = relationship("CV", back_populates="candidature", uselist=False, cascade="all, delete-orphan")
     lettre = relationship("LettreMotivation", back_populates="candidature", uselist=False, cascade="all, delete-orphan")
 
+    @property
+    def titre_poste(self):
+        return self.offre.titre_poste if self.offre else None
+
+    @property
+    def entreprise(self):
+        return self.offre.entreprise if self.offre else None
+
 
 class CV(Base):
     __tablename__ = "cvs"

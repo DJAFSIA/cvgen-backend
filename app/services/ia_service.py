@@ -2,6 +2,7 @@ import json
 import logging
 import re
 from datetime import datetime
+import anthropic
 from anthropic import AsyncAnthropic
 from app.core.config import settings
 
@@ -23,13 +24,21 @@ async def _complete(prompt: str, *, effort: str = "medium", max_tokens: int = 80
     if MODEL.startswith(_FALLBACK_PREFIXES):
         kwargs = {"betas": ["server-side-fallback-2026-07-01"], "fallbacks": "default"}
 
-    response = await client.beta.messages.create(
-        model=MODEL,
-        max_tokens=max_tokens,
-        output_config={"effort": effort},
-        messages=[{"role": "user", "content": prompt}],
-        **kwargs,
-    )
+    try:
+        response = await client.beta.messages.create(
+            model=MODEL,
+            max_tokens=max_tokens,
+            output_config={"effort": effort},
+            messages=[{"role": "user", "content": prompt}],
+            **kwargs,
+        )
+    except TypeError as e:
+        # Le SDK leve TypeError quand aucun identifiant Anthropic n'est configure
+        logger.error("Identifiants Anthropic manquants (ANTHROPIC_API_KEY): %s", e)
+        raise IAError("Identifiants Anthropic manquants") from e
+    except anthropic.APIError as e:
+        logger.error("Erreur API Anthropic: %s", e)
+        raise IAError(f"Erreur du fournisseur d'IA ({type(e).__name__})") from e
     if response.stop_reason == "refusal":
         raise IAError("Requete refusee par le modele")
     texte = "".join(b.text for b in response.content if b.type == "text").strip()

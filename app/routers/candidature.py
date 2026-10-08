@@ -190,6 +190,6 @@ def liste_candidatures(
     db: Session = Depends(get_db),
     current_user: Utilisateur = Depends(get_current_user)
 ):
-    return db.query(Candidature).filter(
+    return db.query(Candidature).options(joinedload(Candidature.offre)).filter(
         Candidature.utilisateur_id == current_user.id
     ).order_by(Candidature.date_creation.desc()).all()

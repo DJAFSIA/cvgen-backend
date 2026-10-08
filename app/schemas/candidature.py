@@ -33,6 +33,9 @@ class CandidatureResponse(BaseModel):
     id: UUID
     offre_id: UUID
     statut: str
+    titre_poste: Optional[str] = None
+    entreprise: Optional[str] = None
+    score_compatibilite: Optional[float] = None
     cv_genere: Optional[str] = None
     lettre_genere: Optional[str] = None
     date_creation: datetime
