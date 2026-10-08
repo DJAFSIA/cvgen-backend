@@ -1,50 +1,10 @@
 import json
 import logging
-import re
 from datetime import datetime
-import anthropic
-from anthropic import AsyncAnthropic
-from app.core.config import settings
 
-# Si ANTHROPIC_API_KEY est vide, le SDK retrouve les identifiants dans l'environnement
-client = AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY or None)
-MODEL = settings.ANTHROPIC_MODEL
+from app.services.llm import IAError, complete as _complete
 
-# Modeles pour lesquels le repli serveur automatique en cas de refus est disponible
-_FALLBACK_PREFIXES = ("claude-opus-5-5", "claude-sonnet-5-5", "claude-fable-5")
 logger = logging.getLogger(__name__)
-
-
-class IAError(Exception):
-    """Echec d'un appel IA (refus, reponse vide ou JSON invalide)."""
-
-
-async def _complete(prompt: str, *, effort: str = "medium", max_tokens: int = 8000) -> str:
-    kwargs = {}
-    if MODEL.startswith(_FALLBACK_PREFIXES):
-        kwargs = {"betas": ["server-side-fallback-2026-07-01"], "fallbacks": "default"}
-
-    try:
-        response = await client.beta.messages.create(
-            model=MODEL,
-            max_tokens=max_tokens,
-            output_config={"effort": effort},
-            messages=[{"role": "user", "content": prompt}],
-            **kwargs,
-        )
-    except TypeError as e:
-        # Le SDK leve TypeError quand aucun identifiant Anthropic n'est configure
-        logger.error("Identifiants Anthropic manquants (ANTHROPIC_API_KEY): %s", e)
-        raise IAError("Identifiants Anthropic manquants") from e
-    except anthropic.APIError as e:
-        logger.error("Erreur API Anthropic: %s", e)
-        raise IAError(f"Erreur du fournisseur d'IA ({type(e).__name__})") from e
-    if response.stop_reason == "refusal":
-        raise IAError("Requete refusee par le modele")
-    texte = "".join(b.text for b in response.content if b.type == "text").strip()
-    if not texte:
-        raise IAError("Reponse vide du modele")
-    return texte
 
 
 def _parse_json(texte: str) -> dict:
