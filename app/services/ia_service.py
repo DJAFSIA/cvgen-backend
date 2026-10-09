@@ -176,6 +176,27 @@ async def generer_questions_alignement(profil, offre) -> dict:
         }
 
 
+# --- Langue des documents ---
+LANGUES_DOCUMENTS = {
+    "fr": "francais", "en": "anglais", "es": "espagnol", "de": "allemand", "pt": "portugais", "it": "italien",
+}
+
+
+def _consigne_langue(langue: str, document: str) -> str:
+    if langue in LANGUES_DOCUMENTS:
+        return (
+            f"Langue: ecris {document} en {LANGUES_DOCUMENTS[langue]} (code \"{langue}\"), quelle que soit la "
+            f"langue de l'offre ou du profil, y compris les titres de section (\"labels\"). Traduis les "
+            f"descriptions de missions si besoin, mais ne traduis pas les noms propres (entreprises, "
+            f"etablissements, outils, logiciels) ni les dates."
+        )
+    return (
+        f"Langue: ecris {document} dans la langue de l'offre, y compris les titres de section "
+        f"(\"labels\"), par exemple Experience / Education / Skills / Languages en anglais. "
+        f"Si les reponses du candidat demandent clairement une autre langue, utilise celle-ci."
+    )
+
+
 # --- PHASE 4 : GENERATION DU CV (donnees structurees) ---
 def _identite(profil) -> tuple[str, str]:
     nom = getattr(profil, "nom_complet_cv", None)
@@ -188,7 +209,7 @@ def _identite(profil) -> tuple[str, str]:
     return nom or "Candidat", email or ""
 
 
-async def generer_cv(profil, offre, modele: str = "classique") -> dict:
+async def generer_cv(profil, offre, modele: str = "classique", langue: str = "auto") -> dict:
     """Retourne un dict conforme a CVData ; le rendu est fait par les modeles HTML."""
     nom, email = _identite(profil)
     style = (
@@ -233,8 +254,7 @@ async def generer_cv(profil, offre, modele: str = "classique") -> dict:
     }}
 
     REGLES:
-    - Langue: ecris tout le CV dans la langue de l'offre, y compris les titres de section
-      ("labels"), par exemple Experience / Education / Skills / Languages en anglais.
+    - {_consigne_langue(langue, "le CV")}
     - N'invente RIEN: ni poste, ni entreprise, ni diplome, ni chiffre, ni outil absent du profil.
       Si une information manque, laisse la chaine vide.
     - Recopie a l'identique les postes, entreprises, lieux et dates du profil.
@@ -257,7 +277,7 @@ async def generer_cv(profil, offre, modele: str = "classique") -> dict:
 
 
 # --- PHASE 4 : GENERATION DE LA LETTRE DE MOTIVATION (donnees structurees) ---
-async def generer_lettre_motivation(profil, offre, reponses_alignement=None) -> dict:
+async def generer_lettre_motivation(profil, offre, reponses_alignement=None, langue: str = "auto") -> dict:
     """Retourne un dict conforme a LettreData."""
     nom, email = _identite(profil)
     contact = "\n".join(x for x in (email, getattr(profil, "telephone", None), getattr(profil, "adresse", None)) if x)
@@ -298,7 +318,7 @@ async def generer_lettre_motivation(profil, offre, reponses_alignement=None) -> 
     }}
 
     REGLES:
-    - Langue: celle de l'offre, sauf si les reponses du candidat demandent clairement une autre langue.
+    - {_consigne_langue(langue, "la lettre")}
       Salutation et formule de politesse selon les usages de cette langue et de ce pays.
     - N'invente aucun fait, diplome, chiffre ou publication absent du profil et des reponses.
     - N'affirme jamais une connaissance prealable de l'entreprise ("j'ai suivi vos travaux", "votre

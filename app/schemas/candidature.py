@@ -1,7 +1,7 @@
 from pydantic import BaseModel, ConfigDict, Field
 from uuid import UUID
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 from app.schemas.document import ModeleCV
 
 class OffreCreate(BaseModel):
@@ -26,6 +26,8 @@ class CandidatureCreate(BaseModel):
 # Pour POST /generer (C'est ici que ton 422 se produisait)
 class GenerationRequest(BaseModel):
     modele_cv: ModeleCV = "classique"
+    # auto = langue de l'offre
+    langue_documents: Literal["auto", "fr", "en", "es", "de", "pt", "it"] = "auto"
     ton_lettre: str = Field(default="professionnel", max_length=100)
     reponses_alignement: Optional[List[Dict[str, Any]]] = Field(default=None, max_length=10)
 

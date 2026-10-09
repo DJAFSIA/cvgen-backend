@@ -88,11 +88,12 @@ async def lancer_generation(
 
     # On appelle l'IA (le service utilisera candidature.profil.utilisateur pour l'identité)
     donnees_cv, donnees_lettre = await asyncio.gather(
-        generer_cv(candidature.profil, candidature.offre, data.modele_cv),
+        generer_cv(candidature.profil, candidature.offre, data.modele_cv, data.langue_documents),
         generer_lettre_motivation(
             candidature.profil,
             candidature.offre,
-            data.reponses_alignement
+            data.reponses_alignement,
+            data.langue_documents,
         ),
     )
 
