@@ -10,6 +10,7 @@ from app.services.ia_service import IAError
 from app.core.database import get_db
 from app.core.rate_limit import import_cv_limiter
 from app.core.errors import http_error
+from app.services.billing import consommer, quota
 from app.core.security import get_current_user, get_verified_user
 from app.models.profil import Profil
 from app.models.utilisateur import Utilisateur
@@ -49,7 +50,7 @@ def update_profil(
 MAX_CV_BYTES = 5 * 1024 * 1024
 
 
-@router.post("/import-cv", dependencies=[Depends(get_verified_user), import_cv_limiter.by_user()])
+@router.post("/import-cv", dependencies=[Depends(get_verified_user), import_cv_limiter.by_user(), quota("imports")])
 async def import_cv(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
@@ -89,6 +90,7 @@ async def import_cv(
 
         db.commit()
         db.refresh(profil)
+        consommer(db, current_user, "imports")
         return {"message": "Import et analyse reussis", "data": donnees}
 
     except (HTTPException, IAError):

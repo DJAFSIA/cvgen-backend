@@ -16,6 +16,7 @@ from app.models.utilisateur import Utilisateur
 from app.models.profil import Profil
 from app.models.offre import OffreEmploi
 from app.models.candidature import Candidature, CV, LettreMotivation
+from app.models.facturation import Paiement, Usage
 from app.core.database import Base
 
 target_metadata = Base.metadata

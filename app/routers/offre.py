@@ -6,6 +6,7 @@ from pydantic import BaseModel
 
 from app.core.database import get_db
 from app.core.errors import http_error
+from app.services.billing import consommer, quota
 from app.core.security import get_current_user, get_verified_user
 from app.models.offre import OffreEmploi
 from app.models.utilisateur import Utilisateur
@@ -39,7 +40,7 @@ async def extraire_offre(
 
 
 #  SOUMISSION ET ANALYSE IA 
-@router.post("/", response_model=OffreResponse, dependencies=[Depends(get_verified_user), analyse_limiter.by_user()])
+@router.post("/", response_model=OffreResponse, dependencies=[Depends(get_verified_user), analyse_limiter.by_user(), quota("analyses")])
 async def soumettre_offre(data: OffreCreate, db: Session = Depends(get_db), current_user = Depends(get_current_user)):
     profil = db.query(Profil).filter(Profil.utilisateur_id == current_user.id).first()
     if not profil:
@@ -64,6 +65,7 @@ async def soumettre_offre(data: OffreCreate, db: Session = Depends(get_db), curr
     db.add(offre)
     db.commit()
     db.refresh(offre)
+    consommer(db, current_user, "analyses")
 
     # TRÈS IMPORTANT : On construit la réponse manuellement pour être sûr 
     # que les listes de l'IA arrivent au Frontend

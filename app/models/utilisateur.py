@@ -17,6 +17,11 @@ class Utilisateur(Base):
     email_verifie = Column(Boolean, nullable=False, default=False, server_default="false")
     google_id = Column(String(64), unique=True, nullable=True, index=True)
     langue = Column(String(5), nullable=False, default="en", server_default="en")
+    # Facturation : plan "pro" valable jusqu'a plan_expire_le (renouvele par Stripe ou par un pass Mobile Money)
+    plan = Column(String(20), nullable=False, default="free", server_default="free")
+    plan_expire_le = Column(DateTime(timezone=True), nullable=True)
+    stripe_customer_id = Column(String(64), unique=True, nullable=True, index=True)
+    stripe_subscription_id = Column(String(64), nullable=True)
     date_inscription = Column(DateTime(timezone=True), server_default=func.now())
     derniere_connexion = Column(DateTime(timezone=True), nullable=True)
 

@@ -13,6 +13,7 @@ from typing import List
 
 from app.core.database import get_db
 from app.core.errors import http_error
+from app.services.billing import consommer, quota
 from app.core.security import create_purpose_token, decode_purpose_token, get_current_user, get_verified_user
 from app.models.candidature import Candidature, CV, LettreMotivation
 from app.models.offre import OffreEmploi
@@ -71,7 +72,7 @@ def creer_candidature(
 
 
 # 2. GÉNÉRER LES DOCUMENTS (Appel IA)
-@router.post("/{candidature_id}/generer", dependencies=[Depends(get_verified_user), generation_limiter.by_user()])
+@router.post("/{candidature_id}/generer", dependencies=[Depends(get_verified_user), generation_limiter.by_user(), quota("generations")])
 async def lancer_generation(
     candidature_id: UUID,
     data: GenerationRequest,
@@ -128,6 +129,7 @@ async def lancer_generation(
     # 6. Mise a jour du statut final
     candidature.statut = "generee"
     db.commit()
+    consommer(db, current_user, "generations")
 
     return {
         "id": candidature.id,

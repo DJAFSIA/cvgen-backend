@@ -48,6 +48,29 @@ class Settings(BaseSettings):
     SMTP_PASSWORD: str = ""
     SMTP_STARTTLS: bool = True
 
+    # --- Plans et quotas mensuels ---
+    FREE_GENERATIONS: int = 3
+    FREE_ANALYSES: int = 10
+    FREE_IMPORTS: int = 3
+    PRO_GENERATIONS: int = 50
+    PRO_ANALYSES: int = 150
+    PRO_IMPORTS: int = 20
+
+    # --- Stripe (cartes bancaires, abonnement mensuel) ---
+    STRIPE_SECRET_KEY: str = ""
+    STRIPE_WEBHOOK_SECRET: str = ""
+    # Optionnel : prix cree dans le tableau de bord Stripe (sinon prix ci-dessous, en centimes)
+    STRIPE_PRICE_ID: str = ""
+    PRO_STRIPE_PRICES: str = "eur:799,usd:899,gbp:699"
+    # TVA/taxes automatiques : necessite d'activer Stripe Tax dans le tableau de bord
+    STRIPE_AUTOMATIC_TAX: bool = False
+
+    # --- Flutterwave (MTN Mobile Money, Orange Money...) : pass Pro de N jours ---
+    FLUTTERWAVE_SECRET_KEY: str = ""
+    FLUTTERWAVE_WEBHOOK_HASH: str = ""
+    MOMO_PRICES: str = "XAF:3000,XOF:3000"
+    MOMO_DAYS: int = 30
+
     @property
     def llm_provider_chain(self) -> list[str]:
         brut = self.LLM_PROVIDERS or self.LLM_PROVIDER or "gemini"
