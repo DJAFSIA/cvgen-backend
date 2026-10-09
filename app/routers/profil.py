@@ -9,7 +9,8 @@ from app.services.ia_service import parser_cv_avec_ia
 from app.services.ia_service import IAError
 from app.core.database import get_db
 from app.core.rate_limit import import_cv_limiter
-from app.core.security import get_current_user
+from app.core.errors import http_error
+from app.core.security import get_current_user, get_verified_user
 from app.models.profil import Profil
 from app.models.utilisateur import Utilisateur
 from app.schemas.profil import ProfilCreate, ProfilUpdate, ProfilResponse
@@ -24,7 +25,7 @@ def get_profil(
 ):
     profil = db.query(Profil).filter(Profil.utilisateur_id == current_user.id).first()
     if not profil:
-        raise HTTPException(status_code=404, detail="Profil introuvable")
+        raise http_error(404, "profile_not_found", "Profil introuvable")
     return profil
 
 
@@ -36,7 +37,7 @@ def update_profil(
 ):
     profil = db.query(Profil).filter(Profil.utilisateur_id == current_user.id).first()
     if not profil:
-        raise HTTPException(status_code=404, detail="Profil introuvable")
+        raise http_error(404, "profile_not_found", "Profil introuvable")
 
     for field, value in data.model_dump(exclude_unset=True).items():
         setattr(profil, field, value)
@@ -48,7 +49,7 @@ def update_profil(
 MAX_CV_BYTES = 5 * 1024 * 1024
 
 
-@router.post("/import-cv", dependencies=[import_cv_limiter.by_user()])
+@router.post("/import-cv", dependencies=[Depends(get_verified_user), import_cv_limiter.by_user()])
 async def import_cv(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
@@ -56,9 +57,9 @@ async def import_cv(
 ):
     contenu = await file.read(MAX_CV_BYTES + 1)
     if len(contenu) > MAX_CV_BYTES:
-        raise HTTPException(status_code=413, detail="Fichier trop volumineux (5 Mo maximum).")
+        raise http_error(413, "file_too_large", "Fichier trop volumineux (5 Mo maximum).")
     if not contenu.startswith(b"%PDF-"):
-        raise HTTPException(status_code=400, detail="Le fichier doit etre un PDF.")
+        raise http_error(400, "file_not_pdf", "Le fichier doit etre un PDF.")
 
     fd, temp_path = tempfile.mkstemp(suffix=".pdf")
     try:
@@ -67,7 +68,7 @@ async def import_cv(
 
         texte_brut = await asyncio.to_thread(extraire_texte_du_pdf, temp_path)
         if not texte_brut or len(texte_brut) < 10:
-            raise HTTPException(status_code=400, detail="Impossible d'extraire le texte du PDF (document scanne ?).")
+            raise http_error(400, "pdf_no_text", "Impossible d'extraire le texte du PDF (document scanne ?).")
 
         donnees = await parser_cv_avec_ia(texte_brut[:60000])
 
@@ -96,7 +97,7 @@ async def import_cv(
     except Exception:
         db.rollback()
         logger.exception("Echec de l'import de CV")
-        raise HTTPException(status_code=500, detail="Erreur lors de l'import du CV.")
+        raise http_error(500, "import_failed", "Erreur lors de l'import du CV.")
     finally:
         if os.path.exists(temp_path):
             os.remove(temp_path)

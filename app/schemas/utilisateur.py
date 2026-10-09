@@ -1,7 +1,7 @@
 from pydantic import BaseModel, EmailStr, Field
 from uuid import UUID
 from datetime import datetime
-from typing import Optional
+from typing import Literal, Optional
 
 class UtilisateurCreate(BaseModel):
     nom: str = Field(min_length=1, max_length=100)
@@ -9,6 +9,7 @@ class UtilisateurCreate(BaseModel):
     email: EmailStr
     # bcrypt ne prend en compte que les 72 premiers octets
     mot_de_passe: str = Field(min_length=8, max_length=72)
+    langue: Literal["en", "fr"] = "en"
 
 class UtilisateurLogin(BaseModel):
     email: EmailStr
@@ -20,6 +21,8 @@ class UtilisateurResponse(BaseModel):
     prenom: str
     email: str
     date_inscription: datetime
+    email_verifie: bool = False
+    langue: str = "en"
 
     class Config:
         from_attributes = True
@@ -28,3 +31,22 @@ class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"
     utilisateur: UtilisateurResponse
+
+
+class VerifyEmailRequest(BaseModel):
+    token: str = Field(min_length=10, max_length=2000)
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+    langue: Optional[Literal["en", "fr"]] = None
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str = Field(min_length=10, max_length=2000)
+    mot_de_passe: str = Field(min_length=8, max_length=72)
+
+
+class GoogleLoginRequest(BaseModel):
+    credential: str = Field(min_length=10, max_length=4000)
+    langue: Literal["en", "fr"] = "en"

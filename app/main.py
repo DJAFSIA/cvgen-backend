@@ -34,7 +34,7 @@ async def ia_error_handler(request: Request, exc: IAError):
     logger.warning("Erreur IA sur %s: %s", request.url.path, exc)
     return JSONResponse(
         status_code=502,
-        content={"detail": "Le service d'IA est momentanement indisponible, reessayez dans un instant."},
+        content={"detail": {"code": "ia_unavailable", "message": "Le service d'IA est momentanement indisponible, reessayez dans un instant."}},
     )
 
 

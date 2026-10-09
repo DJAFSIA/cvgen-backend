@@ -2,8 +2,9 @@ import threading
 import time
 from collections import defaultdict, deque
 
-from fastapi import Depends, HTTPException, Request, status
+from fastapi import Depends, Request
 
+from app.core.errors import http_error
 from app.core.security import get_current_user
 
 
@@ -28,11 +29,8 @@ class RateLimiter:
                 hits.popleft()
             if len(hits) >= self.limit:
                 retry = int(self.window - (now - hits[0])) + 1
-                raise HTTPException(
-                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                    detail="Trop de requetes, reessayez plus tard.",
-                    headers={"Retry-After": str(retry)},
-                )
+                raise http_error(429, "rate_limited", "Trop de requetes, reessayez plus tard.",
+                                 headers={"Retry-After": str(retry)})
             hits.append(now)
 
     def by_ip(self):
@@ -52,3 +50,8 @@ extraction_limiter = RateLimiter("extraction", limit=20, window_seconds=60)
 analyse_limiter = RateLimiter("analyse", limit=30, window_seconds=3600)
 generation_limiter = RateLimiter("generation", limit=15, window_seconds=3600)
 import_cv_limiter = RateLimiter("import_cv", limit=10, window_seconds=3600)
+forgot_limiter = RateLimiter("forgot", limit=5, window_seconds=3600)
+reset_limiter = RateLimiter("reset", limit=10, window_seconds=3600)
+verify_limiter = RateLimiter("verify", limit=20, window_seconds=3600)
+resend_limiter = RateLimiter("resend", limit=3, window_seconds=3600)
+google_limiter = RateLimiter("google", limit=30, window_seconds=60)

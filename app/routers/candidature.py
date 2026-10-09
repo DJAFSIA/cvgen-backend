@@ -9,7 +9,8 @@ from sqlalchemy.orm import Session, joinedload # Import de joinedload ajouté
 from typing import List
 
 from app.core.database import get_db
-from app.core.security import get_current_user
+from app.core.errors import http_error
+from app.core.security import get_current_user, get_verified_user
 from app.models.candidature import Candidature, CV, LettreMotivation
 from app.models.offre import OffreEmploi
 from app.models.profil import Profil
@@ -41,7 +42,7 @@ def creer_candidature(
     # Vérifier que le profil existe
     profil = db.query(Profil).filter(Profil.utilisateur_id == current_user.id).first()
     if not profil:
-        raise HTTPException(status_code=400, detail="Veuillez remplir votre profil avant de postuler.")
+        raise http_error(400, "profile_required", "Veuillez remplir votre profil avant de postuler.")
 
     # Vérifier que l'offre appartient bien à l'utilisateur (ou existe)
     offre = db.query(OffreEmploi).filter(
@@ -50,7 +51,7 @@ def creer_candidature(
     ).first()
     
     if not offre:
-        raise HTTPException(status_code=404, detail="Offre introuvable.")
+        raise http_error(404, "offer_not_found", "Offre introuvable.")
 
     # Créer l'entrée
     candidature = Candidature(
@@ -67,7 +68,7 @@ def creer_candidature(
 
 
 # 2. GÉNÉRER LES DOCUMENTS (Appel IA)
-@router.post("/{candidature_id}/generer", dependencies=[generation_limiter.by_user()])
+@router.post("/{candidature_id}/generer", dependencies=[Depends(get_verified_user), generation_limiter.by_user()])
 async def lancer_generation(
     candidature_id: UUID,
     data: GenerationRequest,
@@ -84,7 +85,7 @@ async def lancer_generation(
     ).first()
     
     if not candidature:
-        raise HTTPException(status_code=404, detail="Candidature introuvable")
+        raise http_error(404, "application_not_found", "Candidature introuvable")
 
     # On appelle l'IA (le service utilisera candidature.profil.utilisateur pour l'identité)
     donnees_cv, donnees_lettre = await asyncio.gather(
@@ -152,7 +153,7 @@ async def exporter_pdf(
     ).first()
 
     if not candidature:
-        raise HTTPException(status_code=404, detail="Candidature introuvable")
+        raise http_error(404, "application_not_found", "Candidature introuvable")
 
     if type_doc == "cv" and candidature.cv:
         doc = candidature.cv
@@ -169,13 +170,13 @@ async def exporter_pdf(
         )
         nom_fichier = f"Lettre_{_nom_sur(current_user.nom)}.pdf"
     else:
-        raise HTTPException(status_code=404, detail="Document non genere ou type inconnu.")
+        raise http_error(404, "document_not_found", "Document non genere ou type inconnu.")
 
     try:
         chemin_pdf = await generer_pdf(html_contenu)
     except Exception:
         logger.exception("Echec de la generation du PDF")
-        raise HTTPException(status_code=500, detail="Impossible de generer le PDF.")
+        raise http_error(500, "pdf_failed", "Impossible de generer le PDF.")
     background_tasks.add_task(os.remove, chemin_pdf)
 
     return FileResponse(

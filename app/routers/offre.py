@@ -5,7 +5,8 @@ from typing import List
 from pydantic import BaseModel 
 
 from app.core.database import get_db
-from app.core.security import get_current_user
+from app.core.errors import http_error
+from app.core.security import get_current_user, get_verified_user
 from app.models.offre import OffreEmploi
 from app.models.utilisateur import Utilisateur
 from app.models.profil import Profil
@@ -21,7 +22,7 @@ class URLRequest(BaseModel):
     url: str
 
 # --- NOUVELLE ROUTE : EXTRACTION AUTOMATIQUE (PHASE 2) ---
-@router.post("/extraire", dependencies=[extraction_limiter.by_user()])
+@router.post("/extraire", dependencies=[Depends(get_verified_user), extraction_limiter.by_user()])
 async def extraire_offre(
     request: URLRequest,
     current_user: Utilisateur = Depends(get_current_user)
@@ -32,17 +33,17 @@ async def extraire_offre(
     try:
         texte = await extraire_texte_offre_url(request.url)
     except ScrapingError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise http_error(400, "scraping_failed", str(e))
 
     return {"contenu": texte}
 
 
 #  SOUMISSION ET ANALYSE IA 
-@router.post("/", response_model=OffreResponse, dependencies=[analyse_limiter.by_user()])
+@router.post("/", response_model=OffreResponse, dependencies=[Depends(get_verified_user), analyse_limiter.by_user()])
 async def soumettre_offre(data: OffreCreate, db: Session = Depends(get_db), current_user = Depends(get_current_user)):
     profil = db.query(Profil).filter(Profil.utilisateur_id == current_user.id).first()
     if not profil:
-        raise HTTPException(status_code=400, detail="Veuillez remplir votre profil avant d'analyser une offre.")
+        raise http_error(400, "profile_required", "Veuillez remplir votre profil avant d'analyser une offre.")
     
     # Appel de l'IA
     analyse = await analyser_offre(data.contenu_brut, profil)
@@ -90,7 +91,7 @@ def liste_offres(
 
 
 # --- ROUTE : OBTENIR LE DÉTAIL D'UNE OFFRE ---
-@router.post("/{offre_id}/questions-alignement", dependencies=[analyse_limiter.by_user()])
+@router.post("/{offre_id}/questions-alignement", dependencies=[Depends(get_verified_user), analyse_limiter.by_user()])
 async def questions_alignement(
     offre_id: UUID,
     db: Session = Depends(get_db),
@@ -98,7 +99,7 @@ async def questions_alignement(
 ):
     profil = db.query(Profil).filter(Profil.utilisateur_id == current_user.id).first()
     if not profil:
-        raise HTTPException(status_code=400, detail="Veuillez remplir votre profil avant de continuer.")
+        raise http_error(400, "profile_required", "Veuillez remplir votre profil avant de continuer.")
 
     offre = db.query(OffreEmploi).filter(
         OffreEmploi.id == offre_id,
@@ -106,7 +107,7 @@ async def questions_alignement(
     ).first()
 
     if not offre:
-        raise HTTPException(status_code=404, detail="Offre introuvable")
+        raise http_error(404, "offer_not_found", "Offre introuvable")
 
     return await generer_questions_alignement(profil, offre)
 
@@ -123,5 +124,5 @@ def get_offre(
     ).first()
     
     if not offre:
-        raise HTTPException(status_code=404, detail="Offre introuvable")
+        raise http_error(404, "offer_not_found", "Offre introuvable")
     return offre
