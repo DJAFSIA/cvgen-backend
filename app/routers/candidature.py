@@ -1,4 +1,7 @@
 import asyncio
+from urllib.parse import quote
+
+from jose import JWTError
 import logging
 import os
 import re
@@ -10,7 +13,7 @@ from typing import List
 
 from app.core.database import get_db
 from app.core.errors import http_error
-from app.core.security import get_current_user, get_verified_user
+from app.core.security import create_purpose_token, decode_purpose_token, get_current_user, get_verified_user
 from app.models.candidature import Candidature, CV, LettreMotivation
 from app.models.offre import OffreEmploi
 from app.models.profil import Profil
@@ -135,40 +138,38 @@ async def lancer_generation(
 
 
 # 3. EXPORTER EN PDF (Appel WeasyPrint)
-@router.get("/{candidature_id}/export-pdf")
-async def exporter_pdf(
-    candidature_id: UUID,
-    background_tasks: BackgroundTasks,
-    type_doc: str = "cv",  # "cv" ou "lettre"
-    modele: ModeleCV | None = None,  # change le modele de CV sans regenerer
-    db: Session = Depends(get_db),
-    current_user: Utilisateur = Depends(get_current_user)
-):
+TYPES_DOC = ("cv", "lettre")
+DOWNLOAD_PURPOSE = "download"
+
+
+def _charger_candidature(db: Session, candidature_id, utilisateur_id) -> Candidature:
     candidature = db.query(Candidature).options(
         joinedload(Candidature.cv),
         joinedload(Candidature.lettre)
     ).filter(
         Candidature.id == candidature_id,
-        Candidature.utilisateur_id == current_user.id
+        Candidature.utilisateur_id == utilisateur_id
     ).first()
-
     if not candidature:
         raise http_error(404, "application_not_found", "Candidature introuvable")
+    return candidature
 
+
+async def _reponse_pdf(candidature: Candidature, type_doc: str, modele: str | None, nom: str, background_tasks: BackgroundTasks) -> FileResponse:
     if type_doc == "cv" and candidature.cv:
         doc = candidature.cv
         html_contenu = (
             rendre_cv_html(doc.donnees, modele or doc.modele or "classique")
             if doc.donnees else rendre_markdown_html(doc.contenu_genere)
         )
-        nom_fichier = f"CV_{_nom_sur(current_user.nom)}.pdf"
+        nom_fichier = f"CV_{_nom_sur(nom)}.pdf"
     elif type_doc == "lettre" and candidature.lettre:
         doc = candidature.lettre
         html_contenu = (
             rendre_lettre_html(doc.donnees)
             if doc.donnees else rendre_markdown_html(doc.contenu_genere)
         )
-        nom_fichier = f"Lettre_{_nom_sur(current_user.nom)}.pdf"
+        nom_fichier = f"Lettre_{_nom_sur(nom)}.pdf"
     else:
         raise http_error(404, "document_not_found", "Document non genere ou type inconnu.")
 
@@ -179,11 +180,53 @@ async def exporter_pdf(
         raise http_error(500, "pdf_failed", "Impossible de generer le PDF.")
     background_tasks.add_task(os.remove, chemin_pdf)
 
-    return FileResponse(
-        chemin_pdf,
-        media_type="application/pdf",
-        filename=nom_fichier
+    return FileResponse(chemin_pdf, media_type="application/pdf", filename=nom_fichier)
+
+
+@router.get("/{candidature_id}/export-pdf")
+async def exporter_pdf(
+    candidature_id: UUID,
+    background_tasks: BackgroundTasks,
+    type_doc: str = "cv",  # "cv" ou "lettre"
+    modele: ModeleCV | None = None,  # change le modele de CV sans regenerer
+    db: Session = Depends(get_db),
+    current_user: Utilisateur = Depends(get_current_user)
+):
+    candidature = _charger_candidature(db, candidature_id, current_user.id)
+    return await _reponse_pdf(candidature, type_doc, modele, current_user.nom, background_tasks)
+
+
+@router.post("/{candidature_id}/lien-telechargement")
+def lien_telechargement(
+    candidature_id: UUID,
+    type_doc: str = "cv",
+    modele: ModeleCV | None = None,
+    db: Session = Depends(get_db),
+    current_user: Utilisateur = Depends(get_current_user)
+):
+    """Lien signe de courte duree : le navigateur telecharge le PDF directement (sans requete
+    XHR), ce qui marche aussi avec les gestionnaires de telechargement qui interceptent les PDF."""
+    if type_doc not in TYPES_DOC:
+        raise http_error(404, "document_not_found", "Document non genere ou type inconnu.")
+    candidature = _charger_candidature(db, candidature_id, current_user.id)
+    token = create_purpose_token(
+        str(current_user.id), DOWNLOAD_PURPOSE, minutes=2,
+        cid=str(candidature.id), doc=type_doc, modele=modele,
     )
+    return {"url": f"/candidature/telecharger?token={quote(token)}"}
+
+
+@router.get("/telecharger")
+async def telecharger(token: str, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    try:
+        payload = decode_purpose_token(token, DOWNLOAD_PURPOSE)
+    except JWTError:
+        raise http_error(400, "invalid_link", "Lien invalide ou expiré")
+    utilisateur = db.query(Utilisateur).filter(Utilisateur.id == payload["sub"]).first()
+    if not utilisateur:
+        raise http_error(400, "invalid_link", "Lien invalide ou expiré")
+    candidature = _charger_candidature(db, payload.get("cid"), utilisateur.id)
+    return await _reponse_pdf(candidature, payload.get("doc", "cv"), payload.get("modele"), utilisateur.nom, background_tasks)
 
 
 # 4. LISTER SES CANDIDATURES

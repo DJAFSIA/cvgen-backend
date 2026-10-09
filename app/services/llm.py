@@ -1,4 +1,8 @@
-"""Acces au modele de langage, interchangeable via LLM_PROVIDER (anthropic, gemini, groq).
+"""Acces au modele de langage.
+
+LLM_PROVIDERS definit une chaine de fournisseurs essayes dans l'ordre : si l'un est sans cle,
+en panne ou a court de quota, le suivant prend le relais. On cumule ainsi plusieurs paliers
+gratuits (Gemini, Groq, OpenRouter, Mistral), un modele local (Ollama) ou un fournisseur payant.
 
 Toutes les generations de l'application demandent une sortie JSON.
 """
@@ -8,7 +12,6 @@ import logging
 import anthropic
 import httpx
 from anthropic import AsyncAnthropic
-from groq import AsyncGroq, GroqError
 
 from app.core.config import settings
 
@@ -54,26 +57,56 @@ async def _anthropic_complete(prompt: str, effort: str, max_tokens: int) -> str:
     return "".join(b.text for b in response.content if b.type == "text")
 
 
-# --- Groq (gratuit avec limites) ---------------------------------------------
-_groq = AsyncGroq(api_key=settings.GROQ_API_KEY or "missing")
+# --- Fournisseurs compatibles OpenAI (Groq, OpenRouter, Mistral, Ollama) ----------
+def _compat_config(provider: str) -> dict:
+    c = settings
+    return {
+        "groq": {"url": "https://api.groq.com/openai/v1", "key": c.GROQ_API_KEY, "model": c.GROQ_MODEL,
+                 # palier gratuit : quelques milliers de tokens par minute
+                 "max_tokens": 4096},
+        "openrouter": {"url": "https://openrouter.ai/api/v1", "key": c.OPENROUTER_API_KEY,
+                       "model": c.OPENROUTER_MODEL, "fallbacks": c.openrouter_fallback_list, "max_tokens": 8000},
+        "mistral": {"url": "https://api.mistral.ai/v1", "key": c.MISTRAL_API_KEY, "model": c.MISTRAL_MODEL, "max_tokens": 8000},
+        "ollama": {"url": c.OLLAMA_URL.rstrip("/") + "/v1", "key": "ollama", "model": c.OLLAMA_MODEL,
+                   "max_tokens": 8000, "timeout": 600},
+    }[provider]
 
 
-async def _groq_complete(prompt: str, max_tokens: int) -> str:
-    if not settings.GROQ_API_KEY:
-        logger.error("GROQ_API_KEY manquante")
-        raise IAError("Cle Groq manquante")
-    try:
-        response = await _groq.chat.completions.create(
-            model=settings.GROQ_MODEL,
-            messages=[{"role": "user", "content": prompt}],
-            response_format={"type": "json_object"},
-            temperature=0.4,
-            max_tokens=max_tokens,
-        )
-    except GroqError as e:
-        logger.error("Erreur API Groq: %s", e)
-        raise IAError(f"Erreur du fournisseur d'IA ({type(e).__name__})") from e
-    return response.choices[0].message.content or ""
+async def _compat_complete(provider: str, prompt: str, max_tokens: int) -> str:
+    conf = _compat_config(provider)
+    if not conf["key"]:
+        raise IAError(f"Cle {provider} manquante")
+    body = {
+        "model": conf["model"],
+        "messages": [{"role": "user", "content": prompt}],
+        "response_format": {"type": "json_object"},
+        "temperature": 0.4,
+        "max_tokens": min(max_tokens, conf["max_tokens"]),
+    }
+    if conf.get("fallbacks"):
+        # OpenRouter essaie lui-meme les modeles suivants si le premier est indisponible
+        body["models"] = [conf["model"], *conf["fallbacks"]]
+    headers = {"Authorization": f"Bearer {conf['key']}"}
+    if provider == "openrouter":
+        headers.update({"HTTP-Referer": settings.FRONTEND_URL, "X-Title": "CVGen"})
+
+    async with httpx.AsyncClient(timeout=conf.get("timeout", 120)) as client:
+        for tentative in range(2):
+            try:
+                response = await client.post(f"{conf['url']}/chat/completions", json=body, headers=headers)
+            except httpx.HTTPError as e:
+                raise IAError(f"{provider} injoignable ({type(e).__name__})") from e
+            if response.status_code in _RETRY_STATUS and tentative == 0:
+                await asyncio.sleep(2)
+                continue
+            break
+    if response.status_code != 200:
+        logger.warning("Erreur API %s %s: %s", provider, response.status_code, response.text[:300])
+        raise IAError(f"Erreur du fournisseur d'IA {provider} (HTTP {response.status_code})")
+    choix = response.json().get("choices") or []
+    if not choix:
+        raise IAError(f"Reponse vide de {provider}")
+    return (choix[0].get("message") or {}).get("content") or ""
 
 
 # --- Google Gemini (palier gratuit AI Studio) --------------------------------
@@ -131,17 +164,41 @@ async def _gemini_complete(prompt: str, max_tokens: int) -> str:
 
 
 # --- Point d'entree ----------------------------------------------------------
-async def complete(prompt: str, *, effort: str = "medium", max_tokens: int = 8000) -> str:
-    provider = settings.LLM_PROVIDER
+_COMPAT = ("groq", "openrouter", "mistral", "ollama")
+
+
+async def _un_fournisseur(provider: str, prompt: str, effort: str, max_tokens: int) -> str:
     if provider == "anthropic":
-        texte = await _anthropic_complete(prompt, effort, max_tokens)
-    elif provider == "gemini":
-        texte = await _gemini_complete(prompt, max_tokens)
-    elif provider == "groq":
-        texte = await _groq_complete(prompt, max_tokens)
-    else:
-        raise IAError(f"Fournisseur LLM inconnu: {provider}")
-    texte = texte.strip()
-    if not texte:
-        raise IAError("Reponse vide du modele")
-    return texte
+        return await _anthropic_complete(prompt, effort, max_tokens)
+    if provider == "gemini":
+        return await _gemini_complete(prompt, max_tokens)
+    if provider in _COMPAT:
+        return await _compat_complete(provider, prompt, max_tokens)
+    raise IAError(f"Fournisseur LLM inconnu: {provider}")
+
+
+def _est_configure(provider: str) -> bool:
+    """Les fournisseurs sans cle sont ignores sans bruit (Ollama et Anthropic se tentent toujours)."""
+    if provider == "gemini":
+        return bool(settings.GEMINI_API_KEY)
+    if provider in ("groq", "openrouter", "mistral"):
+        return bool(_compat_config(provider)["key"])
+    return True
+
+
+async def complete(prompt: str, *, effort: str = "medium", max_tokens: int = 8000) -> str:
+    derniere_erreur = IAError("Aucun fournisseur d'IA configure (LLM_PROVIDERS)")
+    for provider in settings.llm_provider_chain:
+        if not _est_configure(provider):
+            continue
+        try:
+            texte = (await _un_fournisseur(provider, prompt, effort, max_tokens)).strip()
+        except IAError as e:
+            logger.warning("Fournisseur %s indisponible (%s), passage au suivant", provider, e)
+            derniere_erreur = e
+            continue
+        if texte:
+            return texte
+        derniere_erreur = IAError(f"Reponse vide de {provider}")
+    logger.error("Tous les fournisseurs d'IA ont echoue: %s", derniere_erreur)
+    raise derniere_erreur

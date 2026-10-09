@@ -9,7 +9,6 @@ pydantic-settings>=2.13,<3
 bcrypt==4.0.1
 python-jose[cryptography]==3.3.0
 anthropic>=1.12,<2
-groq>=1.1,<2
 weasyprint>=68,<69
 pymupdf>=1.27,<2
 trafilatura>=2.0,<3
