@@ -1,0 +1,58 @@
+# Render Blueprint : cree le service API a partir du Dockerfile.
+# Render > New > Blueprint > choisir ce depot. Les valeurs "sync: false" sont demandees a la creation.
+services:
+  - type: web
+    name: cvgen-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free            # passer a "starter" pour que l'API ne s'endorme pas apres 15 min d'inactivite
+    region: frankfurt     # le plus proche de l'Europe et de l'Afrique
+    healthCheckPath: /health
+    autoDeploy: true      # redeploiement a chaque push sur main
+    envVars:
+      - key: ENV
+        value: production
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL       # chaine de connexion Neon (postgresql://...?sslmode=require)
+        sync: false
+      - key: FRONTEND_URL       # ex. https://cvgen.vercel.app
+        sync: false
+      - key: CORS_ORIGINS       # meme valeur que FRONTEND_URL
+        sync: false
+
+      # IA (au moins une cle)
+      - key: LLM_PROVIDERS
+        value: gemini,groq,openrouter,mistral
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: OPENROUTER_API_KEY
+        sync: false
+
+      # Emails (obligatoire en production : confirmation d'adresse, mot de passe oublie)
+      - key: MAIL_BACKEND
+        value: smtp
+      - key: MAIL_FROM
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+
+      # Paiements (optionnels au lancement : laisser vide desactive le moyen de paiement)
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: FLUTTERWAVE_SECRET_KEY
+        sync: false
+      - key: FLUTTERWAVE_WEBHOOK_HASH
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
