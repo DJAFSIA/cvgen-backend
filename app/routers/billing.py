@@ -89,6 +89,16 @@ async def _stripe(appel, *args, **kwargs):
         raise http_error(502, "payment_provider_error", "Le service de paiement a renvoye une erreur")
 
 
+# "incomplete" exclu : un 3D Secure abandonne ne doit pas bloquer une nouvelle tentative
+STATUTS_ACTIFS = ("active", "trialing", "past_due")
+
+
+def _retirer_pro(utilisateur: Utilisateur, raison: str) -> None:
+    """Remboursement total ou contestation bancaire : le Pro s'arrete immediatement."""
+    logger.warning("Plan Pro retire a %s (%s)", utilisateur.id, raison)
+    utilisateur.plan_expire_le = datetime.now(timezone.utc)
+
+
 class StripeCheckoutRequest(BaseModel):
     devise: str = Field(default="eur", max_length=3)
 
@@ -105,7 +115,12 @@ async def stripe_checkout(
     if not settings.STRIPE_PRICE_ID and devise not in prix:
         raise http_error(400, "currency_unsupported", "Devise non proposee")
 
-    if not current_user.stripe_customer_id:
+    if current_user.stripe_customer_id:
+        # Source de verite : Stripe (couvre un abonnement cree dans un autre onglet)
+        existants = await _stripe(stripe.Subscription.list, customer=current_user.stripe_customer_id, status="all", limit=10)
+        if any(a.get("status") in STATUTS_ACTIFS for a in existants.get("data", [])):
+            raise http_error(409, "already_subscribed", "Vous avez deja un abonnement actif")
+    else:
         client = await _stripe(
             stripe.Customer.create, email=current_user.email,
             name=f"{current_user.prenom} {current_user.nom}", metadata={"user_id": str(current_user.id)},
@@ -217,6 +232,21 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
                     statut="paid", paye_le=datetime.now(timezone.utc),
                 ))
             billing.appliquer_abonnement_stripe(utilisateur, await _stripe(stripe.Subscription.retrieve, sub_id))
+            db.commit()
+
+    elif type_evt == "charge.refunded":
+        # Remboursement total uniquement : un geste commercial partiel ne retire pas le Pro
+        if objet.get("refunded"):
+            utilisateur = db.query(Utilisateur).filter(Utilisateur.stripe_customer_id == objet.get("customer")).first()
+            if utilisateur:
+                _retirer_pro(utilisateur, f"remboursement {objet.get('id')}")
+                db.commit()
+
+    elif type_evt == "charge.dispute.created":
+        charge = await _stripe(stripe.Charge.retrieve, objet.get("charge"))
+        utilisateur = db.query(Utilisateur).filter(Utilisateur.stripe_customer_id == charge.get("customer")).first()
+        if utilisateur:
+            _retirer_pro(utilisateur, f"contestation {objet.get('id')}")
             db.commit()
 
     elif type_evt in ("customer.subscription.updated", "customer.subscription.deleted"):

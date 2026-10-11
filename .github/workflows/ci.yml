@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  tests:
+    name: Tests (PostgreSQL)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: cvgen_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/cvgen_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Bibliotheques de WeasyPrint
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz-subset0
+      - run: pip install -r requirements-dev.txt
+      - run: pytest -q -p no:warnings
+
+  docker:
+    name: Image Docker + rendu PDF
+    runs-on: ubuntu-latest
+    needs: tests
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t cvgen-api .
+      - name: WeasyPrint genere un PDF dans l'image
+        run: |
+          docker run --rm --entrypoint python cvgen-api -c "
+          import os
+          from app.services.pdf_service import _html_vers_pdf
+          from app.services.document_service import rendre_cv_html
+          chemin = _html_vers_pdf(rendre_cv_html({'nom': 'Test CI', 'titre': 'Engineer'}, 'moderne'))
+          taille = os.path.getsize(chemin)
+          assert open(chemin, 'rb').read(5) == b'%PDF-' and taille > 1000, taille
+          print('PDF OK', taille, 'octets')
+          "

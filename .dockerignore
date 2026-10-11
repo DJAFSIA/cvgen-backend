@@ -1,0 +1,14 @@
+venv/
+.venv/
+env/
+.env
+.env.*
+!.env.example
+.git/
+.github/
+.claude/
+tests/
+__pycache__/
+*.py[cod]
+*.pdf
+*.log

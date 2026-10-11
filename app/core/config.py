@@ -6,6 +6,9 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
+    # development | production : en production, la configuration est verifiee au demarrage
+    ENV: Literal["development", "production"] = "development"
+
     DATABASE_URL: str
     SECRET_KEY: str
     ALGORITHM: str = "HS256"
@@ -87,6 +90,24 @@ class Settings(BaseSettings):
     @property
     def cors_origins_list(self) -> list[str]:
         return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]
+
+
+    def verifier_production(self) -> list[str]:
+        """Erreurs de configuration bloquantes en production (liste vide si tout va bien)."""
+        erreurs = []
+        if len(self.SECRET_KEY) < 32 or "changez" in self.SECRET_KEY.lower():
+            erreurs.append("SECRET_KEY doit etre une valeur aleatoire d'au moins 32 caracteres (openssl rand -hex 32)")
+        if not self.FRONTEND_URL.startswith("https://"):
+            erreurs.append("FRONTEND_URL doit etre en https:// en production")
+        if any(o.startswith("http://") for o in self.cors_origins_list):
+            erreurs.append("CORS_ORIGINS ne doit contenir que des origines https:// en production")
+        if self.REQUIRE_EMAIL_VERIFICATION and self.MAIL_BACKEND != "smtp":
+            erreurs.append("MAIL_BACKEND=smtp est requis : sinon les utilisateurs ne recoivent pas l'email de confirmation")
+        if self.STRIPE_SECRET_KEY and not self.STRIPE_WEBHOOK_SECRET:
+            erreurs.append("STRIPE_WEBHOOK_SECRET est requis avec Stripe (renouvellements, resiliations)")
+        if self.FLUTTERWAVE_SECRET_KEY and not self.FLUTTERWAVE_WEBHOOK_HASH:
+            erreurs.append("FLUTTERWAVE_WEBHOOK_HASH est requis avec Flutterwave")
+        return erreurs
 
 
 settings = Settings()
