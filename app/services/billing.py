@@ -57,33 +57,53 @@ def usage_courant(db: Session, utilisateur) -> Usage:
     return usage
 
 
-def verifier_quota(db: Session, utilisateur, type_usage: str) -> None:
-    usage = usage_courant(db, utilisateur)
-    plan = plan_effectif(utilisateur)
-    if getattr(usage, type_usage) >= limites(plan)[type_usage]:
+def reserver(db: Session, utilisateur, type_usage: str) -> str:
+    """Reserve une unite de quota de facon atomique, AVANT l'appel a l'IA.
+
+    La verification et l'increment se font dans une seule requete SQL conditionnelle :
+    des requetes simultanees ne peuvent pas depasser la limite. Retourne la periode reservee.
+    """
+    usage_courant(db, utilisateur)
+    periode = periode_courante()
+    limite = limites(plan_effectif(utilisateur))[type_usage]
+    colonne = getattr(Usage, type_usage)
+    resultat = db.execute(
+        update(Usage)
+        .where(Usage.utilisateur_id == utilisateur.id, Usage.periode == periode, colonne < limite)
+        .values({type_usage: colonne + 1})
+    )
+    db.commit()
+    if resultat.rowcount == 0:
         raise http_error(
             402, "quota_exceeded",
             "Quota mensuel atteint pour votre plan. Passez au plan Pro pour continuer.",
         )
+    return periode
 
 
-def consommer(db: Session, utilisateur, type_usage: str) -> None:
-    """Incremente le compteur de facon atomique (pas de perte en cas de requetes paralleles)."""
-    usage_courant(db, utilisateur)
+def liberer(db: Session, utilisateur_id, type_usage: str, periode: str) -> None:
+    """Rend une unite reservee quand l'operation a echoue (l'utilisateur ne paie pas l'echec)."""
+    db.rollback()
+    colonne = getattr(Usage, type_usage)
     db.execute(
         update(Usage)
-        .where(Usage.utilisateur_id == utilisateur.id, Usage.periode == periode_courante())
-        .values({type_usage: getattr(Usage, type_usage) + 1})
+        .where(Usage.utilisateur_id == utilisateur_id, Usage.periode == periode, colonne > 0)
+        .values({type_usage: colonne - 1})
     )
     db.commit()
 
 
 def quota(type_usage: str):
-    """Dependance FastAPI : refuse la requete (402) si le quota du mois est atteint."""
+    """Dependance FastAPI : reserve le quota avant la route, le rend si la route echoue (402 si atteint)."""
     assert type_usage in TYPES_USAGE
 
-    def dependance(db: Session = Depends(get_db), current_user=Depends(get_current_user)) -> None:
-        verifier_quota(db, current_user, type_usage)
+    def dependance(db: Session = Depends(get_db), current_user=Depends(get_current_user)):
+        periode = reserver(db, current_user, type_usage)
+        try:
+            yield
+        except Exception:
+            liberer(db, current_user.id, type_usage, periode)
+            raise
     return Depends(dependance)
 
 

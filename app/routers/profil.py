@@ -10,7 +10,7 @@ from app.services.ia_service import IAError
 from app.core.database import get_db
 from app.core.rate_limit import import_cv_limiter
 from app.core.errors import http_error
-from app.services.billing import consommer, quota
+from app.services.billing import quota
 from app.core.security import get_current_user, get_verified_user
 from app.models.profil import Profil
 from app.models.utilisateur import Utilisateur
@@ -90,7 +90,6 @@ async def import_cv(
 
         db.commit()
         db.refresh(profil)
-        consommer(db, current_user, "imports")
         return {"message": "Import et analyse reussis", "data": donnees}
 
     except (HTTPException, IAError):

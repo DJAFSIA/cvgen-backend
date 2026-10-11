@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.errors import http_error
+from app.core.rate_limit import payment_limiter
 from app.core.security import get_current_user
 from app.models.facturation import Paiement
 from app.models.utilisateur import Utilisateur
@@ -92,7 +93,7 @@ class StripeCheckoutRequest(BaseModel):
     devise: str = Field(default="eur", max_length=3)
 
 
-@router.post("/stripe/checkout")
+@router.post("/stripe/checkout", dependencies=[payment_limiter.by_user()])
 async def stripe_checkout(
     data: StripeCheckoutRequest, db: Session = Depends(get_db), current_user: Utilisateur = Depends(get_current_user),
 ):
@@ -156,7 +157,7 @@ class StripeConfirmRequest(BaseModel):
     session_id: str = Field(min_length=5, max_length=255)
 
 
-@router.post("/stripe/confirm")
+@router.post("/stripe/confirm", dependencies=[payment_limiter.by_user()])
 async def stripe_confirm(
     data: StripeConfirmRequest, db: Session = Depends(get_db), current_user: Utilisateur = Depends(get_current_user),
 ):
@@ -170,7 +171,7 @@ async def stripe_confirm(
     return {"plan": billing.plan_effectif(current_user), "expire_le": current_user.plan_expire_le}
 
 
-@router.post("/stripe/portal")
+@router.post("/stripe/portal", dependencies=[payment_limiter.by_user()])
 async def stripe_portal(current_user: Utilisateur = Depends(get_current_user)):
     """Portail Stripe : changer de carte, telecharger les factures, resilier."""
     _stripe_actif()
@@ -252,7 +253,7 @@ class MomoCheckoutRequest(BaseModel):
     devise: str = Field(default="XAF", max_length=3)
 
 
-@router.post("/momo/checkout")
+@router.post("/momo/checkout", dependencies=[payment_limiter.by_user()])
 async def momo_checkout(
     data: MomoCheckoutRequest, db: Session = Depends(get_db), current_user: Utilisateur = Depends(get_current_user),
 ):
@@ -322,7 +323,7 @@ class MomoConfirmRequest(BaseModel):
     transaction_id: str = Field(min_length=1, max_length=64)
 
 
-@router.post("/momo/confirm")
+@router.post("/momo/confirm", dependencies=[payment_limiter.by_user()])
 async def momo_confirm(
     data: MomoConfirmRequest, db: Session = Depends(get_db), current_user: Utilisateur = Depends(get_current_user),
 ):

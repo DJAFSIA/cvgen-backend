@@ -6,7 +6,7 @@ from pydantic import BaseModel
 
 from app.core.database import get_db
 from app.core.errors import http_error
-from app.services.billing import consommer, quota
+from app.services.billing import quota
 from app.core.security import get_current_user, get_verified_user
 from app.models.offre import OffreEmploi
 from app.models.utilisateur import Utilisateur
@@ -65,7 +65,6 @@ async def soumettre_offre(data: OffreCreate, db: Session = Depends(get_db), curr
     db.add(offre)
     db.commit()
     db.refresh(offre)
-    consommer(db, current_user, "analyses")
 
     # TRÈS IMPORTANT : On construit la réponse manuellement pour être sûr 
     # que les listes de l'IA arrivent au Frontend
