@@ -1,0 +1,35 @@
+# Environnement local identique a la production : API (image Docker) + PostgreSQL.
+#   docker compose up --build        -> API sur http://localhost:8000
+#   docker compose down              -> arret (les donnees restent dans le volume pgdata)
+# Le frontend se lance a part : npm run dev (dans cvgen-frontend).
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: cvgen
+      POSTGRES_PASSWORD: cvgen
+      POSTGRES_DB: cvgen
+    ports:
+      - "5433:5432"   # 5433 pour ne pas entrer en conflit avec un PostgreSQL deja installe sur Windows
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cvgen"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build: .
+    env_file: .env    # vos cles (IA, SMTP, paiements...) ; les valeurs ci-dessous sont prioritaires
+    environment:
+      DATABASE_URL: postgresql://cvgen:cvgen@db:5432/cvgen
+      ENV: development
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:
