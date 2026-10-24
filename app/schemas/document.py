@@ -45,9 +45,9 @@ class _Tolerant(BaseModel):
 
 class Labels(_Tolerant):
     resume: Texte = "Profil"
-    experience: Texte = "Experience professionnelle"
+    experience: Texte = "Expérience professionnelle"
     formation: Texte = "Formation"
-    competences: Texte = "Competences"
+    competences: Texte = "Compétences"
     langues: Texte = "Langues"
 
 

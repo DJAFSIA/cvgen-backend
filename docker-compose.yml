@@ -26,7 +26,7 @@ services:
       DATABASE_URL: postgresql://cvgen:cvgen@db:5432/cvgen
       ENV: development
     ports:
-      - "8000:8000"
+      - "${API_PORT:-8000}:8000"   # API_PORT=8001 docker compose up  si le port 8000 est deja pris
     depends_on:
       db:
         condition: service_healthy
