@@ -24,6 +24,11 @@ _TEXTES = {
             "button": "Choisir un nouveau mot de passe",
             "outro": "Ce lien est valable 1 heure et ne peut servir qu'une fois. Si vous n'avez rien demandé, ignorez ce message : votre mot de passe reste inchangé.",
         },
+        "deleted": {
+            "subject": "Votre compte CVGen a été supprimé",
+            "intro": "Votre compte CVGen et les données associées (profil, offres, CV, lettres) ont été supprimés à votre demande. Tout abonnement par carte a été arrêté.",
+            "outro": "Si vous n'êtes pas à l'origine de cette suppression, contactez-nous immédiatement{contact}.",
+        },
     },
     "en": {
         "verify": {
@@ -38,8 +43,19 @@ _TEXTES = {
             "button": "Choose a new password",
             "outro": "This link is valid for 1 hour and can only be used once. If you did not ask for this, ignore this message: your password is unchanged.",
         },
+        "deleted": {
+            "subject": "Your CVGen account has been deleted",
+            "intro": "Your CVGen account and its data (profile, job offers, CVs, letters) have been deleted at your request. Any card subscription has been stopped.",
+            "outro": "If you did not delete your account, contact us immediately{contact}.",
+        },
     },
 }
+
+
+_STYLE_CORPS = (
+    "font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;"
+    "max-width:480px;margin:auto;color:#1d1d1f;line-height:1.5"
+)
 
 
 def _smtp_send(message: EmailMessage) -> None:
@@ -60,6 +76,8 @@ async def send_email(to: str, subject: str, text: str, html_body: str) -> None:
     message["From"] = settings.MAIL_FROM
     message["To"] = to
     message["Subject"] = subject
+    if settings.SUPPORT_EMAIL:
+        message["Reply-To"] = settings.SUPPORT_EMAIL
     message.set_content(text)
     message.add_alternative(html_body, subtype="html")
     try:
@@ -74,11 +92,25 @@ async def send_action_email(kind: str, to: str, lang: str, link: str) -> None:
     text = f"{t['intro']}\n\n{t['button']} : {link}\n\n{t['outro']}\n"
     safe = html.escape(link, quote=True)
     html_body = (
-        '<div style="font-family:Arial,Helvetica,sans-serif;max-width:480px;margin:auto;color:#0a2540">'
+        f'<div style="{_STYLE_CORPS}">'
         f"<p>{html.escape(t['intro'])}</p>"
-        f'<p><a href="{safe}" style="display:inline-block;background:#635bff;color:#fff;text-decoration:none;'
-        f'padding:12px 20px;border-radius:6px;font-weight:600">{html.escape(t["button"])}</a></p>'
-        f'<p style="color:#697386;font-size:13px">{html.escape(t["outro"])}</p>'
-        f'<p style="color:#697386;font-size:12px;word-break:break-all">{safe}</p></div>'
+        f'<p><a href="{safe}" style="display:inline-block;background:#0071e3;color:#fff;text-decoration:none;'
+        f'padding:12px 22px;border-radius:980px;font-weight:500">{html.escape(t["button"])}</a></p>'
+        f'<p style="color:#6e6e73;font-size:13px">{html.escape(t["outro"])}</p>'
+        f'<p style="color:#6e6e73;font-size:12px;word-break:break-all">{safe}</p></div>'
+    )
+    await send_email(to, t["subject"], text, html_body)
+
+
+async def send_notification_email(kind: str, to: str, lang: str) -> None:
+    """Email d'information sans lien d'action (ex. 'deleted')."""
+    t = _TEXTES.get(lang, _TEXTES["en"])[kind]
+    contact = f" : {settings.SUPPORT_EMAIL}" if settings.SUPPORT_EMAIL else ""
+    outro = t["outro"].format(contact=contact)
+    text = f"{t['intro']}\n\n{outro}\n"
+    html_body = (
+        f'<div style="{_STYLE_CORPS}">'
+        f"<p>{html.escape(t['intro'])}</p>"
+        f'<p style="color:#6e6e73;font-size:13px">{html.escape(outro)}</p></div>'
     )
     await send_email(to, t["subject"], text, html_body)

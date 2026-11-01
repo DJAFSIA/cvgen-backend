@@ -343,8 +343,15 @@ async def _crediter_flutterwave(db: Session, transaction_id: str) -> Paiement | 
 
     paiement.statut = "paid"
     paiement.paye_le = datetime.now(timezone.utc)
-    utilisateur = db.query(Utilisateur).filter(Utilisateur.id == paiement.utilisateur_id).first()
-    billing.prolonger_pro(utilisateur, paiement.jours or settings.MOMO_DAYS)
+    utilisateur = (
+        db.query(Utilisateur).filter(Utilisateur.id == paiement.utilisateur_id).first()
+        if paiement.utilisateur_id else None
+    )
+    if utilisateur:
+        billing.prolonger_pro(utilisateur, paiement.jours or settings.MOMO_DAYS)
+    else:
+        # Compte supprime entre le paiement et sa confirmation : rien a crediter
+        logger.warning("Paiement %s confirme pour un compte supprime", paiement.reference)
     db.commit()
     return paiement
 

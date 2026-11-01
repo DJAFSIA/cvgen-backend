@@ -22,6 +22,9 @@ class Utilisateur(Base):
     plan_expire_le = Column(DateTime(timezone=True), nullable=True)
     stripe_customer_id = Column(String(64), unique=True, nullable=True, index=True)
     stripe_subscription_id = Column(String(64), nullable=True)
+    # Preuve de l'acceptation des conditions d'utilisation
+    cgu_acceptees_le = Column(DateTime(timezone=True), nullable=True)
+    cgu_version = Column(String(20), nullable=True)
     date_inscription = Column(DateTime(timezone=True), server_default=func.now())
     derniere_connexion = Column(DateTime(timezone=True), nullable=True)
 

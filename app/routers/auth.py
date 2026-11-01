@@ -50,6 +50,8 @@ def _session(utilisateur: Utilisateur) -> Token:
 
 @router.post("/inscription", response_model=Token, status_code=201, dependencies=[inscription_limiter.by_ip()])
 def inscription(data: UtilisateurCreate, background: BackgroundTasks, db: Session = Depends(get_db)):
+    if not data.accepte_cgu:
+        raise http_error(400, "terms_required", "Vous devez accepter les conditions d'utilisation")
     existant = db.query(Utilisateur).filter(Utilisateur.email == data.email).first()
     if existant:
         raise http_error(400, "email_taken", "Cet email est déjà utilisé")
@@ -61,6 +63,8 @@ def inscription(data: UtilisateurCreate, background: BackgroundTasks, db: Sessio
         mot_de_passe=hash_password(data.mot_de_passe),
         langue=data.langue,
         email_verifie=False,
+        cgu_acceptees_le=datetime.now(timezone.utc),
+        cgu_version=settings.CGU_VERSION,
     )
     db.add(utilisateur)
     db.flush()
@@ -181,6 +185,9 @@ async def google_login(data: GoogleLoginRequest, db: Session = Depends(get_db)):
                 google_id=google_id,
                 email_verifie=True,
                 langue=data.langue,
+                # Le bouton Google est accompagne de la mention d'acceptation des conditions
+                cgu_acceptees_le=datetime.now(timezone.utc),
+                cgu_version=settings.CGU_VERSION,
             )
             db.add(utilisateur)
             db.flush()

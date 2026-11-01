@@ -11,7 +11,8 @@ class Paiement(Base):
     __tablename__ = "paiements"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    utilisateur_id = Column(UUID(as_uuid=True), ForeignKey("utilisateurs.id", ondelete="CASCADE"), nullable=False, index=True)
+    # Nullable : a la suppression d'un compte, le paiement reste (comptabilite) mais n'est plus rattache a personne
+    utilisateur_id = Column(UUID(as_uuid=True), ForeignKey("utilisateurs.id", ondelete="SET NULL"), nullable=True, index=True)
     fournisseur = Column(String(20), nullable=False)          # stripe | flutterwave
     reference = Column(String(255), nullable=False, unique=True)  # tx_ref Flutterwave, id de facture Stripe
     montant = Column(Integer, nullable=False)                 # unite mineure (centimes) ou FCFA

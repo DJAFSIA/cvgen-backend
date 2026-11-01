@@ -21,7 +21,7 @@ def emails(monkeypatch):
 
 
 def inscrire(client, email, mdp="FirstPass-7731", langue="fr"):
-    return client.post("/auth/inscription", json={"nom": "T", "prenom": "U", "email": email, "mot_de_passe": mdp, "langue": langue})
+    return client.post("/auth/inscription", json={"nom": "T", "prenom": "U", "email": email, "mot_de_passe": mdp, "langue": langue, "accepte_cgu": True})
 
 
 def test_inscription_puis_verification(client, emails):

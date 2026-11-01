@@ -10,6 +10,8 @@ class UtilisateurCreate(BaseModel):
     # bcrypt ne prend en compte que les 72 premiers octets
     mot_de_passe: str = Field(min_length=8, max_length=72)
     langue: Literal["en", "fr"] = "en"
+    # Case "J'accepte les conditions d'utilisation et la politique de confidentialite"
+    accepte_cgu: bool = False
 
 class UtilisateurLogin(BaseModel):
     email: EmailStr
@@ -23,6 +25,8 @@ class UtilisateurResponse(BaseModel):
     date_inscription: datetime
     email_verifie: bool = False
     langue: str = "en"
+    provider: Optional[str] = "email"
+    cgu_acceptees_le: Optional[datetime] = None
 
     class Config:
         from_attributes = True

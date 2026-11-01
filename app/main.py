@@ -5,7 +5,7 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.database import SessionLocal
-from app.routers import auth, profil, offre, candidature, billing
+from app.routers import auth, profil, offre, candidature, billing, compte
 from app.services.ia_service import IAError
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -41,6 +41,7 @@ app.include_router(profil.router, prefix="/profil", tags=["Profil"])
 app.include_router(offre.router, prefix="/offre", tags=["Offres"])
 app.include_router(candidature.router, prefix="/candidature", tags=["Candidatures"])
 app.include_router(billing.router, prefix="/billing", tags=["Abonnement"])
+app.include_router(compte.router, prefix="/compte", tags=["Compte et donnees personnelles"])
 
 @app.exception_handler(IAError)
 async def ia_error_handler(request: Request, exc: IAError):

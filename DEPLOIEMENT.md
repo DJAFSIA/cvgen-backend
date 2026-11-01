@@ -100,7 +100,29 @@ Enregistrez : Render redéploie l'API.
 3. Vérifiez que le Mobile Money est activé pour XAF/XOF sur votre compte.
 4. Passage en réel : validation KYC de l'entreprise par Flutterwave.
 
-## 8. Nom de domaine (plus tard)
+## 8. Avant d'ouvrir au public
+
+Ces points ne bloquent pas un test privé, mais **doivent être faits avant d'accueillir de vrais
+utilisateurs** (et Stripe les vérifie pour activer les paiements réels) :
+
+- [ ] **Pages légales** : complétez l'identité de l'éditeur dans
+      `cvgen-frontend/src/legal/config.js` (raison sociale, adresse, immatriculation, email,
+      directeur de la publication, coordonnées des hébergeurs). Tant qu'un champ reste à compléter,
+      un bandeau jaune s'affiche en haut des pages légales.
+- [ ] **Relecture juridique** : les textes sont des modèles adaptés au fonctionnement réel de CVGen,
+      pas un avis juridique. Faites-les relire par un juriste, en particulier pour le droit de la
+      consommation des pays visés.
+- [ ] **Fournisseurs d'IA** : la politique de confidentialité indique que les CV ne servent pas à
+      entraîner les modèles des fournisseurs. C'est faux avec certaines offres gratuites
+      (notamment l'offre gratuite de Gemini). Passez sur des offres payantes, ou retirez ces
+      fournisseurs de `LLM_PROVIDERS`, avant l'ouverture.
+- [ ] **`SUPPORT_EMAIL`** (Render) : adresse qui reçoit les réponses aux emails et les demandes
+      liées aux données personnelles. Mettez la même dans `src/legal/config.js`.
+- [ ] **Remboursements Mobile Money** : ils se font à la main depuis Flutterwave. Après un
+      remboursement, retirez aussi le plan Pro du compte (les remboursements par carte, eux,
+      retirent le Pro automatiquement).
+
+## 9. Nom de domaine (plus tard)
 
 1. Achetez le domaine (ex. chez Hostinger, OVH, Namecheap…).
 2. Vercel → projet → **Settings → Domains** : ajoutez `votre-domaine.com` (suivez les DNS indiqués).
@@ -109,6 +131,12 @@ Enregistrez : Render redéploie l'API.
    et les URL des webhooks Stripe / Flutterwave.
 
 ---
+
+### Droits des utilisateurs (RGPD)
+Chaque utilisateur peut, depuis la page **Compte** : corriger son nom et la langue de ses emails,
+**télécharger toutes ses données** (fichier JSON) et **supprimer définitivement son compte**
+(abonnement par carte arrêté, données effacées, paiements conservés sans lien avec la personne
+pour la comptabilité).
 
 ### Limites connues de cette première version
 - Les limites de débit (anti-abus) sont en mémoire : gardez **1 seule instance** de l'API

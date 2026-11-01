@@ -41,6 +41,10 @@ class Settings(BaseSettings):
     FRONTEND_URL: str = "http://localhost:5173"
     REQUIRE_EMAIL_VERIFICATION: bool = True
     GOOGLE_CLIENT_ID: str = ""
+    # Version des conditions d'utilisation acceptees a l'inscription (a changer a chaque mise a jour)
+    CGU_VERSION: str = "2026-11-01"
+    # Adresse du support : en "Repondre a" des emails et dans les messages de securite
+    SUPPORT_EMAIL: str = ""
 
     # Emails : console (le message est ecrit dans les logs) ou smtp
     MAIL_BACKEND: Literal["console", "smtp"] = "console"
