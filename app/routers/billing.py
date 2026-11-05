@@ -133,7 +133,7 @@ async def stripe_checkout(
         if settings.STRIPE_PRICE_ID else
         {"quantity": 1, "price_data": {
             "currency": devise, "unit_amount": prix[devise],
-            "recurring": {"interval": "month"}, "product_data": {"name": "CVGen Pro"},
+            "recurring": {"interval": "month"}, "product_data": {"name": "Apply Pro"},
         }}
     )
     params = {
@@ -293,7 +293,7 @@ async def momo_checkout(
     if devise not in prix:
         raise http_error(400, "currency_unsupported", "Devise non proposee")
 
-    tx_ref = f"cvgen-{uuid.uuid4().hex}"
+    tx_ref = f"apply-{uuid.uuid4().hex}"
     db.add(Paiement(
         utilisateur_id=current_user.id, fournisseur="flutterwave", reference=tx_ref,
         montant=prix[devise], devise=devise, statut="pending", jours=settings.MOMO_DAYS,
@@ -306,7 +306,7 @@ async def momo_checkout(
         "currency": devise,
         "redirect_url": f"{settings.FRONTEND_URL}/abonnement/mobile-money",
         "customer": {"email": current_user.email, "name": f"{current_user.prenom} {current_user.nom}"},
-        "customizations": {"title": "CVGen Pro", "description": f"Plan Pro - {settings.MOMO_DAYS} jours"},
+        "customizations": {"title": "Apply Pro", "description": f"Plan Pro - {settings.MOMO_DAYS} jours"},
         "meta": {"user_id": str(current_user.id)},
     })
     return {"url": lien.get("link")}

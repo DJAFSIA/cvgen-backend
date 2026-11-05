@@ -55,7 +55,7 @@ def modifier_compte(data: CompteUpdate, db: Session = Depends(get_db), current_u
 def exporter_donnees(db: Session = Depends(get_db), current_user: Utilisateur = Depends(get_current_user)):
     """Droits d'acces et a la portabilite : toutes les donnees du compte en JSON."""
     donnees = compte_service.exporter(db, current_user)
-    nom_fichier = f"cvgen-export-{date.today().isoformat()}.json"
+    nom_fichier = f"apply-export-{date.today().isoformat()}.json"
     return JSONResponse(
         content=jsonable_encoder(donnees),
         headers={"Content-Disposition": f'attachment; filename="{nom_fichier}"', "Cache-Control": "no-store"},

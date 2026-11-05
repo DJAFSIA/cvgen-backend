@@ -9,7 +9,7 @@ from app.routers import auth, profil, offre, candidature, billing, compte
 from app.services.ia_service import IAError
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
-logger = logging.getLogger("cvgen")
+logger = logging.getLogger("apply")
 
 PRODUCTION = settings.ENV == "production"
 if PRODUCTION:
@@ -18,7 +18,7 @@ if PRODUCTION:
         raise RuntimeError("Configuration de production invalide :\n- " + "\n- ".join(erreurs))
 
 app = FastAPI(
-    title="CVGen API",
+    title="Apply API",
     description="API de génération intelligente de CV et lettres de motivation",
     version="1.0.0",
     # Documentation interactive masquee en production
@@ -54,7 +54,7 @@ async def ia_error_handler(request: Request, exc: IAError):
 
 @app.get("/")
 def root():
-    return {"message": "CVGen API opérationnelle"}
+    return {"message": "Apply API opérationnelle"}
 
 
 @app.get("/health", include_in_schema=False)

@@ -7,10 +7,12 @@ import os
 load_dotenv()
 
 config = context.config
-config.set_main_option("sqlalchemy.url", os.getenv("DATABASE_URL"))
+# % double : un mot de passe encode dans l'URL ferait sinon planter la lecture de la configuration
+config.set_main_option("sqlalchemy.url", os.getenv("DATABASE_URL").replace("%", "%%"))
 
 if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    # disable_existing_loggers=False : les migrations ne doivent pas couper les journaux de l'application
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 from app.models.utilisateur import Utilisateur
 from app.models.profil import Profil

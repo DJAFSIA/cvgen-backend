@@ -1,4 +1,4 @@
-# CVGen Backend — Guide de démarrage
+# Apply Backend — Guide de démarrage
 
 ## Prérequis
 - Python 3.10+

@@ -1,14 +1,16 @@
-# Render Blueprint : cree le service API a partir du Dockerfile.
+# Render Blueprint : cree l'API (image Docker) et le site (statique) en une seule fois.
 # Render > New > Blueprint > choisir ce depot. Les valeurs "sync: false" sont demandees a la creation.
+# Les reglages optionnels (paiements, connexion Google, IA de secours...) s'ajoutent plus tard dans
+# Environment : voir DEPLOIEMENT.md.
 services:
   - type: web
-    name: cvgen-api
+    name: apply-server    # adresse : https://apply-server.onrender.com
     runtime: docker
     dockerfilePath: ./Dockerfile
     plan: free            # passer a "starter" pour que l'API ne s'endorme pas apres 15 min d'inactivite
     region: frankfurt     # le plus proche de l'Europe et de l'Afrique
     healthCheckPath: /health
-    autoDeploy: true      # redeploiement a chaque push sur main
+    autoDeployTrigger: commit   # redeploiement a chaque push sur main
     envVars:
       - key: ENV
         value: production
@@ -16,45 +18,55 @@ services:
         generateValue: true
       - key: DATABASE_URL       # chaine de connexion Neon (postgresql://...?sslmode=require)
         sync: false
-      - key: FRONTEND_URL       # ex. https://cvgen.vercel.app
-        sync: false
-      - key: CORS_ORIGINS       # meme valeur que FRONTEND_URL
-        sync: false
+      - key: FRONTEND_URL       # liens des emails, retours de paiement
+        value: https://apply.onrender.com
+      - key: CORS_ORIGINS       # seul site autorise a appeler l'API
+        value: https://apply.onrender.com
 
-      # IA (au moins une cle)
+      # IA
       - key: LLM_PROVIDERS
         value: gemini,groq,openrouter,mistral
       - key: GEMINI_API_KEY
         sync: false
-      - key: GROQ_API_KEY
-        sync: false
-      - key: OPENROUTER_API_KEY
-        sync: false
 
-      # Emails (obligatoire en production : confirmation d'adresse, mot de passe oublie)
+      # Emails : API de Brevo, car l'offre gratuite de Render bloque les ports SMTP
       - key: MAIL_BACKEND
-        value: smtp
-      - key: MAIL_FROM
+        value: brevo
+      - key: MAIL_FROM          # ex. Apply <adresse-validee@exemple.com>
         sync: false
-      - key: SMTP_HOST
-        sync: false
-      - key: SMTP_PORT
-        value: "587"
-      - key: SMTP_USER
-        sync: false
-      - key: SMTP_PASSWORD
+      - key: BREVO_API_KEY
         sync: false
 
-      # Paiements (optionnels au lancement : laisser vide desactive le moyen de paiement)
-      - key: STRIPE_SECRET_KEY
-        sync: false
-      - key: STRIPE_WEBHOOK_SECRET
-        sync: false
-      - key: FLUTTERWAVE_SECRET_KEY
-        sync: false
-      - key: FLUTTERWAVE_WEBHOOK_HASH
-        sync: false
-      - key: GOOGLE_CLIENT_ID
-        sync: false
-      - key: SUPPORT_EMAIL        # ex. support@votre-domaine.com
-        sync: false
+  - type: web
+    name: apply        # adresse : https://apply.onrender.com
+    runtime: static
+    repo: https://github.com/DJAFSIA/cvgen-frontend
+    buildCommand: npm ci && npm run build
+    staticPublishPath: ./dist
+    autoDeployTrigger: commit
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: VITE_API_URL
+        value: https://apply-server.onrender.com
+    routes:
+      # Application a page unique : toute adresse renvoie vers index.html (les fichiers existants restent servis)
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    headers:
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+      - path: /*
+        name: Referrer-Policy
+        value: strict-origin-when-cross-origin
+      - path: /*
+        name: Permissions-Policy
+        value: camera=(), microphone=(), geolocation=()
+      - path: /assets/*
+        name: Cache-Control
+        value: public, max-age=31536000, immutable

@@ -88,7 +88,7 @@ async def _compat_complete(provider: str, prompt: str, max_tokens: int) -> str:
         body["models"] = [conf["model"], *conf["fallbacks"]]
     headers = {"Authorization": f"Bearer {conf['key']}"}
     if provider == "openrouter":
-        headers.update({"HTTP-Referer": settings.FRONTEND_URL, "X-Title": "CVGen"})
+        headers.update({"HTTP-Referer": settings.FRONTEND_URL, "X-Title": "Apply"})
 
     async with httpx.AsyncClient(timeout=conf.get("timeout", 120)) as client:
         for tentative in range(2):

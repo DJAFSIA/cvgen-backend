@@ -33,7 +33,7 @@ def exporter(db: Session, u: Utilisateur) -> dict:
     usages = db.query(Usage).filter(Usage.utilisateur_id == u.id).order_by(Usage.periode).all()
 
     return {
-        "format": "cvgen-export",
+        "format": "apply-export",
         "version": 1,
         "genere_le": datetime.now(timezone.utc),
         "compte": {

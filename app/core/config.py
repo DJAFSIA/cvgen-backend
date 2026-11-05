@@ -46,9 +46,11 @@ class Settings(BaseSettings):
     # Adresse du support : en "Repondre a" des emails et dans les messages de securite
     SUPPORT_EMAIL: str = ""
 
-    # Emails : console (le message est ecrit dans les logs) ou smtp
-    MAIL_BACKEND: Literal["console", "smtp"] = "console"
-    MAIL_FROM: str = "CVGen <no-reply@localhost>"
+    # Emails : console (le message est ecrit dans les logs), brevo (API HTTPS) ou smtp.
+    # L'offre gratuite de Render bloque les ports SMTP : y utiliser brevo.
+    MAIL_BACKEND: Literal["console", "brevo", "smtp"] = "console"
+    MAIL_FROM: str = "Apply <no-reply@localhost>"
+    BREVO_API_KEY: str = ""
     SMTP_HOST: str = ""
     SMTP_PORT: int = 587
     SMTP_USER: str = ""
@@ -105,8 +107,14 @@ class Settings(BaseSettings):
             erreurs.append("FRONTEND_URL doit etre en https:// en production")
         if any(o.startswith("http://") for o in self.cors_origins_list):
             erreurs.append("CORS_ORIGINS ne doit contenir que des origines https:// en production")
-        if self.REQUIRE_EMAIL_VERIFICATION and self.MAIL_BACKEND != "smtp":
-            erreurs.append("MAIL_BACKEND=smtp est requis : sinon les utilisateurs ne recoivent pas l'email de confirmation")
+        if self.REQUIRE_EMAIL_VERIFICATION and self.MAIL_BACKEND == "console":
+            erreurs.append("MAIL_BACKEND=brevo ou smtp est requis : sinon les utilisateurs ne recoivent pas l'email de confirmation")
+        if self.MAIL_BACKEND == "brevo" and not self.BREVO_API_KEY:
+            erreurs.append("BREVO_API_KEY est requis avec MAIL_BACKEND=brevo")
+        if self.MAIL_BACKEND == "smtp" and not self.SMTP_HOST:
+            erreurs.append("SMTP_HOST est requis avec MAIL_BACKEND=smtp")
+        if self.MAIL_BACKEND != "console" and "@localhost" in self.MAIL_FROM:
+            erreurs.append("MAIL_FROM doit etre une adresse d'expedition validee, ex. Apply <adresse@exemple.com>")
         if self.STRIPE_SECRET_KEY and not self.STRIPE_WEBHOOK_SECRET:
             erreurs.append("STRIPE_WEBHOOK_SECRET est requis avec Stripe (renouvellements, resiliations)")
         if self.FLUTTERWAVE_SECRET_KEY and not self.FLUTTERWAVE_WEBHOOK_HASH:

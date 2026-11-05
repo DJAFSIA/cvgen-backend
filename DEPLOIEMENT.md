@@ -1,19 +1,24 @@
-# Mise en ligne de CVGen
+# Mise en ligne d'Apply
 
-Architecture : **Vercel** (site) → **Render** (API Docker) → **Neon** (PostgreSQL).
+Architecture : **Render** (site statique + API Docker) → **Neon** (PostgreSQL), emails par **Brevo**.
 Chaque `git push` sur `main` redéploie automatiquement le site et l'API.
 
-Comptez environ 45 minutes la première fois. Suivez les étapes dans l'ordre : chaque service a
-besoin d'une adresse fournie par le précédent.
+Adresses prévues, fixées dans `render.yaml` :
+- site : https://apply.onrender.com
+- API : https://apply-server.onrender.com
+
+Comptez environ 30 minutes la première fois. Suivez les étapes dans l'ordre et gardez vos clés
+de côté : elles se collent directement chez Render, jamais dans le code.
 
 ---
 
 ## 1. Base de données : Neon (gratuit)
 
 1. Créez un compte sur https://neon.tech, puis **New Project** :
-   nom `cvgen`, PostgreSQL 16, région **AWS Europe Central (Frankfurt)** (la même que l'API).
-2. Dans **Connection Details**, copiez la chaîne de connexion (format
-   `postgresql://...@ep-....neon.tech/neondb?sslmode=require`).
+   nom `apply`, région **AWS Europe Central 1 (Frankfurt)** (la même que l'API), version de
+   PostgreSQL proposée par défaut.
+2. **Connect** : désactivez **Connection pooling**, puis copiez la chaîne de connexion
+   (format `postgresql://...@ep-....neon.tech/neondb?sslmode=require`).
    C'est votre `DATABASE_URL`. Gardez-la secrète.
 
 Les tables sont créées automatiquement au premier démarrage de l'API (migrations Alembic).
@@ -21,57 +26,53 @@ Les tables sont créées automatiquement au premier démarrage de l'API (migrati
 ## 2. Emails : Brevo (gratuit, 300 emails/jour)
 
 Obligatoire en production : sans emails, personne ne peut confirmer son compte.
+L'offre gratuite de Render bloque les ports SMTP : l'API passe donc par l'API HTTPS de Brevo.
 
 1. Créez un compte sur https://www.brevo.com.
-2. **Senders, Domains & Dedicated IPs** → ajoutez et validez l'adresse d'expédition
-   (ex. votre adresse Gmail au début, une adresse `@votre-domaine` plus tard).
-3. **SMTP & API** → onglet SMTP → **Generate a new SMTP key**. Notez :
-   - `SMTP_HOST` = `smtp-relay.brevo.com`
-   - `SMTP_PORT` = `587`
-   - `SMTP_USER` = l'identifiant affiché (souvent `xxxx@smtp-brevo.com`)
-   - `SMTP_PASSWORD` = la clé SMTP générée
-   - `MAIL_FROM` = `CVGen <adresse-validee@exemple.com>`
+2. **Senders, Domains & Dedicated IPs** → **Senders** : ajoutez et validez l'adresse d'expédition.
+3. **SMTP & API** → onglet **API Keys** → **Generate a new API key**.
+   Cette clé (`xkeysib-...`) est votre `BREVO_API_KEY`.
+4. **Settings** → **Security** → **Authorized IPs** : si le blocage des adresses inconnues est actif,
+   désactivez-le (Render n'a pas d'adresse IP unique et fixe).
 
-## 3. API : Render
+Sans domaine à vous, Brevo remplace une adresse Gmail par une adresse `@brevosend.com` : les emails
+partent, mais arrivent plus souvent dans les spams. Un domaine authentifié règle cela (étape 7).
 
-1. Créez un compte sur https://render.com avec votre compte GitHub.
+## 3. API et site : Render
+
+1. Créez un compte sur https://render.com avec votre compte GitHub. Quand GitHub demande à quels
+   dépôts donner accès, cochez `cvgen-backend` **et** `cvgen-frontend`.
 2. **New** → **Blueprint** → choisissez le dépôt `cvgen-backend`.
-   Render lit `render.yaml` et prépare le service `cvgen-api`.
-3. Renseignez les valeurs demandées :
+   Render lit `render.yaml` et prépare deux services : `apply-server` (API) et `apply` (site).
+3. Renseignez les 4 valeurs demandées :
    - `DATABASE_URL` : la chaîne Neon (étape 1)
-   - `FRONTEND_URL` et `CORS_ORIGINS` : mettez provisoirement `https://cvgen.vercel.app`
-     (vous corrigerez à l'étape 5 avec l'adresse réelle)
-   - `GEMINI_API_KEY` (et/ou `GROQ_API_KEY`, `OPENROUTER_API_KEY`)
-   - `MAIL_FROM`, `SMTP_HOST`, `SMTP_USER`, `SMTP_PASSWORD` (étape 2)
-   - Paiements : laissez vides pour l'instant (les moyens de paiement seront simplement masqués)
-4. **Apply**. Le premier déploiement prend 5 à 10 minutes (construction de l'image Docker).
-5. Vérifiez : `https://cvgen-api.onrender.com/health` doit répondre `{"status":"ok","db":true}`.
-   (L'adresse exacte est affichée en haut de la page du service.)
+   - `GEMINI_API_KEY` : la clé de `.env`, ou une nouvelle sur https://aistudio.google.com/apikey
+   - `MAIL_FROM` : `Apply <adresse-validee@exemple.com>` (l'adresse validée à l'étape 2)
+   - `BREVO_API_KEY` : la clé de l'étape 2
+4. **Apply**. Le premier déploiement de l'API prend 5 à 10 minutes (construction de l'image Docker).
+5. Vérifiez :
+   - https://apply-server.onrender.com/health répond `{"status":"ok","db":true}`
+   - https://apply.onrender.com affiche le site, avec les tarifs (signe qu'il joint bien l'API)
+
+Si Render affiche une autre adresse pour un service (nom déjà pris), corrigez `FRONTEND_URL`,
+`CORS_ORIGINS` et `VITE_API_URL` dans `render.yaml`, puis poussez sur `main`.
 
 Si le déploiement échoue avec « Configuration de production invalide », le journal liste
 précisément les réglages à corriger : c'est voulu, l'API refuse de démarrer mal configurée.
 
-Offre gratuite : l'API s'endort après 15 minutes sans visite et met ~1 minute à se réveiller.
-Pour le lancement public, passez le service en **Starter** (~7 $/mois).
+### Ce que permet l'offre gratuite
+- Le site statique est gratuit et reste toujours disponible.
+- L'API s'endort après 15 minutes sans visite et met environ 1 minute à se réveiller.
+- Elle dispose de 0,1 CPU et 512 Mo de mémoire. Render déconseille cette offre pour la production :
+  pour le lancement public, passez l'API en **Starter** (environ 7 $/mois).
 
-## 4. Site : Vercel
+### Réglages optionnels, à ajouter plus tard
+Sur le service → **Environment** :
+- `apply-server` : `GROQ_API_KEY`, `OPENROUTER_API_KEY` (IA de secours si Gemini sature),
+  `GOOGLE_CLIENT_ID`, `SUPPORT_EMAIL`, et les clés de paiement (étape 5)
+- `apply` : `VITE_GOOGLE_CLIENT_ID` (connexion Google)
 
-1. Sur https://vercel.com → **Add New** → **Project** → importez le dépôt `cvgen-frontend`.
-2. Framework détecté : **Vite** (rien à changer).
-3. **Environment Variables** :
-   - `VITE_API_URL` = l'adresse Render de l'étape 3 (ex. `https://cvgen-api.onrender.com`, sans `/` final)
-   - `VITE_GOOGLE_CLIENT_ID` = optionnel (connexion Google)
-4. **Deploy**. Notez l'adresse obtenue (ex. `https://cvgen-xxxx.vercel.app`).
-
-## 5. Relier le site et l'API
-
-Sur Render → service `cvgen-api` → **Environment** :
-- `FRONTEND_URL` = l'adresse Vercel exacte (liens des emails, retours de paiement)
-- `CORS_ORIGINS` = la même adresse (autorise le site à appeler l'API)
-
-Enregistrez : Render redéploie l'API.
-
-## 6. Vérifications avant d'annoncer le site
+## 4. Vérifications avant d'annoncer le site
 
 - [ ] `/health` répond `ok`
 - [ ] Inscription : l'email de confirmation arrive (regardez aussi les spams), le lien fonctionne
@@ -80,12 +81,21 @@ Enregistrez : Render redéploie l'API.
 - [ ] Quota : la 4e génération d'un compte gratuit affiche « limite du mois »
 - [ ] Le site s'affiche correctement sur téléphone
 
-## 7. Activer les paiements (quand vous êtes prêt)
+Pas d'email reçu ? Cherchez `Brevo a refuse l'envoi` dans **Logs** de `apply-server` : le message
+de Brevo dit quoi corriger (clé invalide, adresse IP non autorisée, expéditeur non validé).
+
+## 5. Activer les paiements (quand vous êtes prêt)
+
+Les moyens de paiement sans clé restent masqués sur le site. Ajoutez les clés dans **Environment**
+de `apply-server`.
 
 ### Stripe (cartes)
+Stripe n'ouvre de compte qu'aux entreprises de certains pays (https://stripe.com/global), dont très
+peu en Afrique. Vérifiez que le vôtre y figure avant de commencer.
+
 1. Tableau de bord Stripe → **Developers → API keys** → `STRIPE_SECRET_KEY` (commencez par la clé de test).
 2. **Developers → Webhooks → Add endpoint** :
-   - URL : `https://<votre-api>/billing/stripe/webhook`
+   - URL : `https://apply-server.onrender.com/billing/stripe/webhook`
    - Événements : `checkout.session.completed`, `invoice.paid`, `customer.subscription.updated`,
      `customer.subscription.deleted`, `charge.refunded`, `charge.dispute.created`
    - Copiez le **Signing secret** (`whsec_...`) dans `STRIPE_WEBHOOK_SECRET`.
@@ -95,12 +105,12 @@ Enregistrez : Render redéploie l'API.
 
 ### Flutterwave (MTN Mobile Money, Orange Money)
 1. **Settings → API keys** → `FLUTTERWAVE_SECRET_KEY`.
-2. **Settings → Webhooks** : URL `https://<votre-api>/billing/momo/webhook`, choisissez un
+2. **Settings → Webhooks** : URL `https://apply-server.onrender.com/billing/momo/webhook`, choisissez un
    **Secret hash** et recopiez-le dans `FLUTTERWAVE_WEBHOOK_HASH`.
 3. Vérifiez que le Mobile Money est activé pour XAF/XOF sur votre compte.
 4. Passage en réel : validation KYC de l'entreprise par Flutterwave.
 
-## 8. Avant d'ouvrir au public
+## 6. Avant d'ouvrir au public
 
 Ces points ne bloquent pas un test privé, mais **doivent être faits avant d'accueillir de vrais
 utilisateurs** (et Stripe les vérifie pour activer les paiements réels) :
@@ -109,7 +119,7 @@ utilisateurs** (et Stripe les vérifie pour activer les paiements réels) :
       `cvgen-frontend/src/legal/config.js` (raison sociale, adresse, immatriculation, email,
       directeur de la publication, coordonnées des hébergeurs). Tant qu'un champ reste à compléter,
       un bandeau jaune s'affiche en haut des pages légales.
-- [ ] **Relecture juridique** : les textes sont des modèles adaptés au fonctionnement réel de CVGen,
+- [ ] **Relecture juridique** : les textes sont des modèles adaptés au fonctionnement réel d'Apply,
       pas un avis juridique. Faites-les relire par un juriste, en particulier pour le droit de la
       consommation des pays visés.
 - [ ] **Fournisseurs d'IA** : la politique de confidentialité indique que les CV ne servent pas à
@@ -118,17 +128,20 @@ utilisateurs** (et Stripe les vérifie pour activer les paiements réels) :
       fournisseurs de `LLM_PROVIDERS`, avant l'ouverture.
 - [ ] **`SUPPORT_EMAIL`** (Render) : adresse qui reçoit les réponses aux emails et les demandes
       liées aux données personnelles. Mettez la même dans `src/legal/config.js`.
+- [ ] **API toujours éveillée** : passez `apply-server` en Starter.
 - [ ] **Remboursements Mobile Money** : ils se font à la main depuis Flutterwave. Après un
       remboursement, retirez aussi le plan Pro du compte (les remboursements par carte, eux,
       retirent le Pro automatiquement).
 
-## 9. Nom de domaine (plus tard)
+## 7. Nom de domaine (plus tard)
 
 1. Achetez le domaine (ex. chez Hostinger, OVH, Namecheap…).
-2. Vercel → projet → **Settings → Domains** : ajoutez `votre-domaine.com` (suivez les DNS indiqués).
-3. Render → service → **Settings → Custom Domains** : ajoutez `api.votre-domaine.com`.
-4. Mettez à jour `FRONTEND_URL`, `CORS_ORIGINS` (Render), `VITE_API_URL` (Vercel, puis redéployez),
-   et les URL des webhooks Stripe / Flutterwave.
+2. Render → `apply` → **Settings → Custom Domains** : ajoutez `votre-domaine.com` (suivez les DNS indiqués).
+3. Render → `apply-server` → **Settings → Custom Domains** : ajoutez `api.votre-domaine.com`.
+4. Dans `render.yaml`, mettez à jour `FRONTEND_URL`, `CORS_ORIGINS` et `VITE_API_URL`, puis poussez sur `main`.
+5. Modifiez les URL des webhooks Stripe / Flutterwave.
+6. Brevo → **Senders, Domains & Dedicated IPs** → **Domains** : authentifiez le domaine, puis mettez
+   une adresse de ce domaine dans `MAIL_FROM` (les emails arriveront bien mieux en boîte de réception).
 
 ---
 

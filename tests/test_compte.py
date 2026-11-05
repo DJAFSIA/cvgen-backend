@@ -31,7 +31,7 @@ def compte_rempli(db, make_user):
     db.flush()
     db.add(CV(candidature_id=cand.id, contenu_genere="# CV", donnees={"nom": "Test"}))
     db.add(LettreMotivation(candidature_id=cand.id, contenu_genere="Lettre", donnees={"paragraphes": ["x"]}))
-    db.add(Paiement(utilisateur_id=u.id, fournisseur="flutterwave", reference=f"cvgen-{uuid.uuid4().hex}",
+    db.add(Paiement(utilisateur_id=u.id, fournisseur="flutterwave", reference=f"apply-{uuid.uuid4().hex}",
                     montant=3000, devise="XAF", statut="paid", jours=30))
     db.add(Usage(utilisateur_id=u.id, periode="2026-11", generations=1, analyses=2, imports=1))
     db.commit()
