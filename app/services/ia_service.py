@@ -62,6 +62,7 @@ async def analyser_offre(contenu_offre: str, profil) -> dict:
     COMPETENCES: {profil.competences or 'Non specifiees'}
     EXPERIENCES: {profil.experiences or 'Non renseignees'}
     FORMATIONS: {profil.formations or 'Non renseignees'}
+    LANGUES: {profil.langues or 'Non renseignees'}
     """
 
     prompt = f"""
