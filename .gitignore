@@ -32,3 +32,6 @@ alembic/versions/*.pyc
 
 # Logs
 *.log
+
+# Le cahier des charges exporte reste suivi, contrairement aux PDF generes
+!docs/*.pdf

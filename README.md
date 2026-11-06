@@ -1,100 +1,73 @@
-# Apply Backend — Guide de démarrage
+# Apply : API (backend)
+
+Apply rédige un CV et une lettre de motivation adaptés à chaque offre d'emploi.
+Ce dépôt contient l'API (FastAPI, PostgreSQL). Le site est dans `cvgen-frontend`.
+
+Documents de référence :
+- [Cahier des charges complet](docs/Apply-cahier-des-charges.pdf) : réalisations, accès, installation, interfaces
+- [GUIDE.md](GUIDE.md) : utiliser Apply, en local et en ligne
+- [DEPLOIEMENT.md](DEPLOIEMENT.md) : mettre le site en ligne (Neon, Brevo, Render)
 
 ## Prérequis
-- Python 3.10+
-- PostgreSQL installé et démarré
-- Un compte Anthropic (pour la clé API Claude)
 
----
+- Python 3.12 ou plus récent
+- PostgreSQL 16 ou plus récent, démarré
+- Une clé d'IA : [Gemini](https://aistudio.google.com/apikey) suffit pour commencer
 
 ## Installation
 
-### 1. Créer et activer un environnement virtuel
+Créez la base de données :
+
+```sql
+CREATE DATABASE cvgen_db;
+```
+
+Préparez l'environnement Python :
+
 ```bash
 python -m venv venv
-
-# Windows
-venv\Scripts\activate
-
-# Linux / Mac
-source venv/bin/activate
 ```
 
-### 2. Installer les dépendances
 ```bash
-pip install -r requirements.txt
+venv/Scripts/python -m pip install -r requirements-dev.txt
 ```
 
-### 3. Configurer les variables d'environnement
+Copiez `.env.example` en `.env`, puis renseignez au minimum `DATABASE_URL`, `SECRET_KEY`,
+`GEMINI_API_KEY`, `FRONTEND_URL` et `CORS_ORIGINS`. Ce fichier ne part jamais sur GitHub.
+
+Créez les tables :
+
 ```bash
-cp .env.example .env
+venv/Scripts/alembic upgrade head
 ```
-Ouvrir `.env` et remplir les valeurs :
-- `DATABASE_URL` : votre URL PostgreSQL
-- `SECRET_KEY` : générer avec `openssl rand -hex 32`
-- `ANTHROPIC_API_KEY` : votre clé sur https://console.anthropic.com
 
-### 4. Créer la base de données PostgreSQL
+## Lancer l'API
+
 ```bash
-psql -U postgres
-CREATE DATABASE cvgen_db;
-\q
+venv/Scripts/python -m uvicorn app.main:app --reload --port 8001
 ```
 
-### 5. Appliquer les migrations
+- État de l'API : http://localhost:8001/health
+- Documentation interactive, en local uniquement : http://localhost:8001/docs
+- En local, les emails s'affichent dans le terminal au lieu de partir.
+
+## Tests
+
 ```bash
-alembic revision --autogenerate -m "init"
-alembic upgrade head
+venv/Scripts/python -m pytest -q
 ```
 
-### 6. Lancer le serveur
-```bash
-uvicorn app.main:app --reload
-```
-
----
-
-## Documentation API
-
-Une fois le serveur lancé, ouvrir dans le navigateur :
-
-- **Swagger UI** : http://localhost:8000/docs
-- **ReDoc** : http://localhost:8000/redoc
-
----
-
-## Structure du projet
+## Organisation
 
 ```
-cvgen-backend/
-├── app/
-│   ├── main.py              # Point d'entrée FastAPI
-│   ├── core/
-│   │   ├── config.py        # Variables d'environnement
-│   │   ├── database.py      # Connexion SQLAlchemy
-│   │   └── security.py      # JWT et hachage
-│   ├── models/              # Tables SQLAlchemy
-│   ├── schemas/             # Validation Pydantic
-│   ├── routers/             # Endpoints API
-│   └── services/            # Logique métier (IA, PDF)
-├── alembic/                 # Migrations base de données
-├── .env.example             # Modèle de configuration
-├── requirements.txt
-└── README.md
+app/
+  routers/     adresses de l'API
+  services/    IA, PDF, emails, paiements, export et suppression de compte
+  models/      tables de la base
+  schemas/     formats des échanges
+  templates/   modèles HTML des CV et de la lettre
+  core/        configuration, base, sécurité, limites anti-abus
+alembic/       évolutions de la base
+tests/         tests automatiques
+render.yaml    déploiement du site et de l'API sur Render
 ```
-
----
-
-## Endpoints principaux
-
-| Méthode | Endpoint | Description |
-|---------|----------|-------------|
-| POST | /auth/inscription | Créer un compte |
-| POST | /auth/login | Se connecter |
-| GET | /profil/ | Récupérer son profil |
-| PUT | /profil/ | Mettre à jour son profil |
-| POST | /offre/ | Soumettre une offre (analyse IA) |
-| GET | /offre/ | Lister ses offres |
-| POST | /candidature/ | Créer une candidature |
-| POST | /candidature/{id}/generer | Générer CV + lettre |
-| GET | /candidature/{id}/export-pdf | Exporter en PDF |
