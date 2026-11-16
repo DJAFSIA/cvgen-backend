@@ -1,7 +1,7 @@
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 from pydantic import BaseModel 
 
 from app.core.database import get_db
@@ -11,12 +11,24 @@ from app.core.security import get_current_user, get_verified_user
 from app.models.offre import OffreEmploi
 from app.models.utilisateur import Utilisateur
 from app.models.profil import Profil
-from app.schemas.candidature import OffreCreate, OffreResponse
+from app.schemas.candidature import OffreCreate, OffreResponse, QuestionsRequest
 from app.services.ia_service import analyser_offre, generer_questions_alignement
 from app.services.scraper_service import extraire_texte_offre_url, ScrapingError
 from app.core.rate_limit import extraction_limiter, analyse_limiter
 
 router = APIRouter()
+
+# Textes de repli si l'IA omet un champ de l'analyse, dans la langue de l'interface
+INDISPONIBLE = {
+    "fr": {"analyse": "Analyse indisponible", "conseil": "Pas de conseil disponible"},
+    "en": {"analyse": "Analysis unavailable", "conseil": "No advice available"},
+}
+
+
+def _langue(demandee: Optional[str], utilisateur) -> str:
+    """Langue de l'interface envoyee par le site, sinon celle du compte."""
+    langue = demandee or getattr(utilisateur, "langue", None) or "en"
+    return langue if langue in INDISPONIBLE else "en"
 
 # --- Schéma pour la requête d'extraction par URL ---
 class URLRequest(BaseModel):
@@ -46,8 +58,9 @@ async def soumettre_offre(data: OffreCreate, db: Session = Depends(get_db), curr
     if not profil:
         raise http_error(400, "profile_required", "Veuillez remplir votre profil avant d'analyser une offre.")
     
-    # Appel de l'IA
-    analyse = await analyser_offre(data.contenu_brut, profil)
+    # Appel de l'IA : textes destines au candidat dans la langue de son interface
+    langue = _langue(data.langue, current_user)
+    analyse = await analyser_offre(data.contenu_brut, profil, langue)
     
     # Création de l'objet Offre
     offre = OffreEmploi(
@@ -73,9 +86,9 @@ async def soumettre_offre(data: OffreCreate, db: Session = Depends(get_db), curr
         "titre_poste": offre.titre_poste,
         "entreprise": offre.entreprise,
         "score_compatibilite": offre.score_compatibilite,
-        "points_forts": analyse.get("points_forts", ["Analyse indisponible"]),
-        "points_manquants": analyse.get("points_manquants", ["Analyse indisponible"]),
-        "conseil_ia": analyse.get("conseil_ia", "Pas de conseil disponible"),
+        "points_forts": analyse.get("points_forts", [INDISPONIBLE[langue]["analyse"]]),
+        "points_manquants": analyse.get("points_manquants", [INDISPONIBLE[langue]["analyse"]]),
+        "conseil_ia": analyse.get("conseil_ia", INDISPONIBLE[langue]["conseil"]),
         "date_ajout": offre.date_ajout
     }
 
@@ -95,6 +108,7 @@ def liste_offres(
 @router.post("/{offre_id}/questions-alignement", dependencies=[Depends(get_verified_user), analyse_limiter.by_user()])
 async def questions_alignement(
     offre_id: UUID,
+    data: Optional[QuestionsRequest] = None,
     db: Session = Depends(get_db),
     current_user: Utilisateur = Depends(get_current_user)
 ):
@@ -110,7 +124,7 @@ async def questions_alignement(
     if not offre:
         raise http_error(404, "offer_not_found", "Offre introuvable")
 
-    return await generer_questions_alignement(profil, offre)
+    return await generer_questions_alignement(profil, offre, _langue(data.langue if data else None, current_user))
 
 
 @router.get("/{offre_id}", response_model=OffreResponse)

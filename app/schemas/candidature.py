@@ -4,9 +4,19 @@ from datetime import datetime
 from typing import Any, Dict, List, Literal, Optional
 from app.schemas.document import ModeleCV
 
+# Langue de l'interface : celle des textes d'analyse et des questions lus par le candidat.
+# Absente (ancien client) : langue enregistree sur le compte.
+LangueInterface = Literal["fr", "en"]
+
+
 class OffreCreate(BaseModel):
     url_source: Optional[str] = Field(default=None, max_length=1000)
     contenu_brut: str = Field(min_length=30, max_length=30000)
+    langue: Optional[LangueInterface] = None
+
+
+class QuestionsRequest(BaseModel):
+    langue: Optional[LangueInterface] = None
 
 class OffreResponse(BaseModel):
     id: UUID

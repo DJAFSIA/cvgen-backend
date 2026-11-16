@@ -55,8 +55,18 @@ async def parser_cv_avec_ia(texte_cv: str) -> dict:
 extraire_donnees_profil = parser_cv_avec_ia
 
 
+# --- Langue des textes lus par le candidat (analyse, questions) ---
+# Ces textes s'affichent dans l'interface : ils suivent sa langue, pas celle de l'offre.
+LANGUES_INTERFACE = {"fr": "francais", "en": "anglais"}
+
+
+def _consigne_reponse(langue: str, textes: str) -> str:
+    nom = LANGUES_INTERFACE.get(langue, "anglais")
+    return f"Langue: ecris {textes} en {nom}, la langue de l'interface du candidat, quelle que soit la langue de l'offre ou du profil."
+
+
 # --- PHASE 3 : ANALYSE ET MATCHING ---
-async def analyser_offre(contenu_offre: str, profil) -> dict:
+async def analyser_offre(contenu_offre: str, profil, langue: str = "fr") -> dict:
     profil_data = f"""
     TITRE: {profil.titre_profil or 'Non specifie'}
     COMPETENCES: {profil.competences or 'Non specifiees'}
@@ -84,13 +94,16 @@ async def analyser_offre(contenu_offre: str, profil) -> dict:
     - "points_manquants": list of strings, 3 points a ameliorer ou a clarifier
     - "mots_cles": list of strings, 8 mots-cles de l'offre
     - "conseil_ia": string, conseil strategique concret pour renforcer la candidature
+
+    {_consigne_reponse(langue, '"points_forts", "points_manquants" et "conseil_ia"')}
+    Garde "titre_poste", "entreprise" et "mots_cles" tels qu'ils sont ecrits dans l'offre.
     """
 
     texte = await _complete(prompt)
     return _parse_json(texte)
 
 
-async def generer_questions_alignement(profil, offre) -> dict:
+async def generer_questions_alignement(profil, offre, langue: str = "fr") -> dict:
     profil_data = f"""
     TITRE: {profil.titre_profil or 'Non specifie'}
     COMPETENCES: {profil.competences or 'Non specifiees'}
@@ -138,8 +151,10 @@ async def generer_questions_alignement(profil, offre) -> dict:
       resultat mesurable, projet proche, qualites humaines, conception
       personnelle du metier.
     - Ne demande pas une information deja clairement presente dans le profil.
+    - {_consigne_reponse(langue, '"diagnostic", "theme", "question" et "aide"')}
     """
 
+    secours = QUESTIONS_SECOURS.get(langue, QUESTIONS_SECOURS["en"])
     try:
         texte = await _complete(prompt)
         data = _parse_json(texte)
@@ -147,34 +162,65 @@ async def generer_questions_alignement(profil, offre) -> dict:
         if not questions:
             raise ValueError("Aucune question generee")
         return {
-            "diagnostic": data.get("diagnostic", "Quelques precisions peuvent renforcer la lettre."),
+            "diagnostic": data.get("diagnostic", secours["diagnostic_court"]),
             "questions": questions[:5],
         }
     except Exception as e:
         logger.warning("Erreur IA questions alignement: %s", e)
-        return {
-            "diagnostic": "Quelques precisions aideront a rendre la lettre plus personnelle et convaincante.",
-            "questions": [
-                {
-                    "id": "q1",
-                    "theme": "Experience pertinente",
-                    "question": "Quelle experience de votre parcours ressemble le plus aux missions de cette offre ?",
-                    "aide": "Contexte, probleme traite, actions menees et resultat obtenu.",
-                },
-                {
-                    "id": "q2",
-                    "theme": "Motivation",
-                    "question": "Qu'est-ce qui vous attire vraiment dans ce poste, cette entreprise ou ce secteur ?",
-                    "aide": "Lien avec vos objectifs, vos valeurs ou votre trajectoire professionnelle.",
-                },
-                {
-                    "id": "q3",
-                    "theme": "Preuve concrete",
-                    "question": "Quel resultat, projet ou apprentissage prouve le mieux votre capacite a reussir dans ce poste ?",
-                    "aide": "Resultat mesurable, livrable, publication, responsabilite ou situation marquante.",
-                },
-            ],
-        }
+        return {"diagnostic": secours["diagnostic"], "questions": secours["questions"]}
+
+
+# Questions de secours si l'IA ne repond pas, dans la langue de l'interface
+QUESTIONS_SECOURS = {
+    "fr": {
+        "diagnostic_court": "Quelques precisions peuvent renforcer la lettre.",
+        "diagnostic": "Quelques precisions aideront a rendre la lettre plus personnelle et convaincante.",
+        "questions": [
+            {
+                "id": "q1",
+                "theme": "Experience pertinente",
+                "question": "Quelle experience de votre parcours ressemble le plus aux missions de cette offre ?",
+                "aide": "Contexte, probleme traite, actions menees et resultat obtenu.",
+            },
+            {
+                "id": "q2",
+                "theme": "Motivation",
+                "question": "Qu'est-ce qui vous attire vraiment dans ce poste, cette entreprise ou ce secteur ?",
+                "aide": "Lien avec vos objectifs, vos valeurs ou votre trajectoire professionnelle.",
+            },
+            {
+                "id": "q3",
+                "theme": "Preuve concrete",
+                "question": "Quel resultat, projet ou apprentissage prouve le mieux votre capacite a reussir dans ce poste ?",
+                "aide": "Resultat mesurable, livrable, publication, responsabilite ou situation marquante.",
+            },
+        ],
+    },
+    "en": {
+        "diagnostic_court": "A few details can make the letter stronger.",
+        "diagnostic": "A few details will make the letter more personal and convincing.",
+        "questions": [
+            {
+                "id": "q1",
+                "theme": "Relevant experience",
+                "question": "Which experience in your background is closest to the duties in this job offer?",
+                "aide": "Context, the problem you handled, what you did and the result.",
+            },
+            {
+                "id": "q2",
+                "theme": "Motivation",
+                "question": "What really draws you to this role, this company or this sector?",
+                "aide": "How it connects to your goals, your values or your career path.",
+            },
+            {
+                "id": "q3",
+                "theme": "Concrete proof",
+                "question": "Which result, project or lesson best shows that you can succeed in this role?",
+                "aide": "A measurable result, a deliverable, a publication, a responsibility or a key situation.",
+            },
+        ],
+    },
+}
 
 
 # --- Langue des documents ---
