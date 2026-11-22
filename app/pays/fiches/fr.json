@@ -1,0 +1,59 @@
+{
+  "code": "fr",
+  "nom": {
+    "fr": "France",
+    "en": "France"
+  },
+  "langues_usuelles": [
+    "fr"
+  ],
+  "pages_max": 1,
+  "photo": "facultative",
+  "etat_civil": {
+    "date_naissance": "facultative",
+    "nationalite": "facultative",
+    "situation_familiale": "deconseillee"
+  },
+  "regles_cv": [
+    "Une page ; deux seulement au-delà d'une dizaine d'années d'expérience.",
+    "Un titre clair qui reprend l'intitulé du poste visé, puis une accroche courte.",
+    "Rubriques : Expérience professionnelle, Formation, Compétences, Langues ; centres d'intérêt facultatifs.",
+    "Ordre antichronologique.",
+    "Ni âge ni situation familiale par défaut : la photo et l'âge ne sont pas des critères de sélection."
+  ],
+  "regles_lettre": [
+    "Lettre de motivation d'une page, avec un objet (« Candidature au poste de … »).",
+    "Appel « Madame, Monsieur, » ; formule finale « Je vous prie d'agréer, Madame, Monsieur, l'expression de mes salutations distinguées. »."
+  ],
+  "resume": {
+    "fr": [
+      "Une page, titre du poste visé en tête",
+      "Photo et âge facultatifs",
+      "Lettre avec objet et formule de politesse"
+    ],
+    "en": [
+      "One page, target job title on top",
+      "Photo and age optional",
+      "Letter with subject line and formal closing"
+    ]
+  },
+  "fiabilite": "officielle",
+  "sources": [
+    {
+      "titre": "Onisep : Les 10 questions à se poser avant de rédiger son CV",
+      "url": "https://www.onisep.fr/vers-l-emploi/recherche-d-emploi/les-10-questions-a-se-poser-avant-de-rediger-son-cv",
+      "type": "officielle"
+    },
+    {
+      "titre": "Fonction publique : Rédiger un CV",
+      "url": "https://www.fonction-publique.gouv.fr/files/files/ArchivePortailFP/www.fonction-publique.gouv.fr/biep/rediger-cv-0.html",
+      "type": "officielle"
+    },
+    {
+      "titre": "Michael Page : Les dix commandements du CV",
+      "url": "https://www.michaelpage.fr/advice/candidats/le-cv-et-la-lettre-de-motivation/les-dix-commandements-du-cv",
+      "type": "privee"
+    }
+  ],
+  "verifie_le": "2026-11-22"
+}

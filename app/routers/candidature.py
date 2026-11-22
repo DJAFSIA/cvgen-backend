@@ -20,6 +20,7 @@ from app.models.offre import OffreEmploi
 from app.models.profil import Profil
 from app.models.utilisateur import Utilisateur
 from app.schemas.candidature import CandidatureCreate, CandidatureResponse, GenerationRequest
+from app.pays import AUTRE, fiche
 from app.services.ia_service import generer_cv, generer_lettre_motivation
 from app.services.pdf_service import generer_pdf
 from app.services.document_service import (
@@ -91,14 +92,21 @@ async def lancer_generation(
     if not candidature:
         raise http_error(404, "application_not_found", "Candidature introuvable")
 
+    # Usages du pays vise : choix de l'utilisateur, sinon pays detecte dans l'offre ; « autre » = aucun
+    code_pays = data.pays if data.pays is not None else candidature.offre.pays
+    fiche_pays = fiche(code_pays)
+    if code_pays not in (None, AUTRE) and fiche_pays is None:
+        raise http_error(422, "unknown_country", "Pays inconnu")
+
     # On appelle l'IA (le service utilisera candidature.profil.utilisateur pour l'identité)
     donnees_cv, donnees_lettre = await asyncio.gather(
-        generer_cv(candidature.profil, candidature.offre, data.modele_cv, data.langue_documents),
+        generer_cv(candidature.profil, candidature.offre, data.modele_cv, data.langue_documents, fiche_pays),
         generer_lettre_motivation(
             candidature.profil,
             candidature.offre,
             data.reponses_alignement,
             data.langue_documents,
+            fiche_pays,
         ),
     )
 
@@ -128,6 +136,7 @@ async def lancer_generation(
 
     # 6. Mise a jour du statut final
     candidature.statut = "generee"
+    candidature.pays = fiche_pays.code if fiche_pays else (AUTRE if code_pays == AUTRE else None)
     db.commit()
 
     return {
@@ -135,6 +144,7 @@ async def lancer_generation(
         "cv": contenu_cv,
         "lettre": contenu_lettre,
         "modele": data.modele_cv,
+        "pays": candidature.pays,
     }
 
 

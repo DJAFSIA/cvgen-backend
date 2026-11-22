@@ -1,0 +1,62 @@
+{
+  "code": "ca-qc",
+  "nom": {
+    "fr": "Québec (Canada)",
+    "en": "Quebec (Canada)"
+  },
+  "langues_usuelles": [
+    "fr",
+    "en"
+  ],
+  "pages_max": 2,
+  "photo": "deconseillee",
+  "etat_civil": {
+    "date_naissance": "deconseillee",
+    "nationalite": "deconseillee",
+    "situation_familiale": "deconseillee"
+  },
+  "regles_cv": [
+    "Ordre antichronologique : le plus récent d'abord.",
+    "Aucune photo, ni âge, date de naissance, état civil, nombre d'enfants, état de santé ou numéro d'assurance sociale.",
+    "Coordonnées en tête : nom, ville, téléphone, courriel.",
+    "Rubrique Langues avec le niveau en français et en anglais quand le profil l'indique.",
+    "Loisirs seulement s'ils sont liés au poste visé.",
+    "Pas de nom de référence : au plus « Références sur demande ».",
+    "En français, employer les termes en usage au Québec (courriel, cellulaire)."
+  ],
+  "regles_lettre": [
+    "Lettre de présentation d'une page, centrée sur les besoins de l'employeur décrits dans l'offre.",
+    "Appel « Madame, Monsieur, » sans nom connu ; formule finale sobre (ex. « Je vous prie d'agréer, Madame, Monsieur, mes salutations distinguées. »)."
+  ],
+  "resume": {
+    "fr": [
+      "Pas de photo, d'âge ni d'état civil",
+      "2 pages au plus, le plus récent d'abord",
+      "Lettre de présentation d'une page"
+    ],
+    "en": [
+      "No photo, age or marital status",
+      "2 pages at most, most recent first",
+      "One-page cover letter"
+    ]
+  },
+  "fiabilite": "officielle",
+  "sources": [
+    {
+      "titre": "Québec.ca : Rédiger son curriculum vitæ",
+      "url": "https://www.quebec.ca/emploi/trouver-emploi-stage/conseils/preparer-candidature/rediger-curriculum-vitae",
+      "type": "officielle"
+    },
+    {
+      "titre": "Office québécois de la langue française : Conseils pour la rédaction du curriculum vitæ",
+      "url": "https://vitrinelinguistique.oqlf.gouv.qc.ca/22593/la-redaction-et-la-communication/redaction-administrative-et-commerciale/curriculum-vitae/conseils-pour-la-redaction-du-curriculum-vitae",
+      "type": "officielle"
+    },
+    {
+      "titre": "Québec.ca : Rédiger sa lettre de présentation",
+      "url": "https://www.quebec.ca/emploi/trouver-emploi-stage/conseils/preparer-candidature/rediger-lettre-presentation",
+      "type": "officielle"
+    }
+  ],
+  "verifie_le": "2026-11-22"
+}

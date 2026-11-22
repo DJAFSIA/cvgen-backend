@@ -1,0 +1,56 @@
+{
+  "code": "ch",
+  "nom": {
+    "fr": "Suisse",
+    "en": "Switzerland"
+  },
+  "langues_usuelles": [
+    "fr",
+    "de",
+    "it",
+    "en"
+  ],
+  "pages_max": 2,
+  "photo": "facultative",
+  "etat_civil": {
+    "date_naissance": "attendue",
+    "nationalite": "attendue",
+    "situation_familiale": "facultative"
+  },
+  "regles_cv": [
+    "Données personnelles en tête : nom, adresse, téléphone, courriel, date de naissance, nationalité et, pour les personnes étrangères, type de permis (ex. permis B), quand le profil les fournit.",
+    "Photo facultative, au format passeport sur fond neutre.",
+    "Parcours sans lacune, dates au mois près, ordre antichronologique.",
+    "Deux pages au plus."
+  ],
+  "regles_lettre": [
+    "Lettre de motivation d'une page ; les certificats de travail et diplômes sont joints au dossier : le signaler (« Annexes : … ») si le candidat les mentionne.",
+    "Appel « Madame, Monsieur, » ; formule finale « Je vous prie d'agréer, Madame, Monsieur, mes salutations distinguées. »."
+  ],
+  "resume": {
+    "fr": [
+      "Date de naissance, nationalité ou permis en tête",
+      "Parcours sans lacune, au mois près",
+      "Certificats de travail joints au dossier"
+    ],
+    "en": [
+      "Date of birth, nationality or permit at the top",
+      "No gaps, dates to the month",
+      "Work certificates attached"
+    ]
+  },
+  "fiabilite": "officielle",
+  "sources": [
+    {
+      "titre": "orientation.ch : Créer un curriculum vitæ",
+      "url": "https://www.orientation.ch/fr/creer-un-curriculum-vitae",
+      "type": "officielle"
+    },
+    {
+      "titre": "Canton de Vaud : Le dossier de candidature",
+      "url": "https://www.vd.ch/fileadmin/user_upload/themes/formation/orientation/fichiers_pdf/publications/Dossier_de_candidature.pdf",
+      "type": "officielle"
+    }
+  ],
+  "verifie_le": "2026-11-22"
+}

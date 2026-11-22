@@ -1,0 +1,52 @@
+{
+  "code": "sn",
+  "nom": {
+    "fr": "Sénégal",
+    "en": "Senegal"
+  },
+  "langues_usuelles": [
+    "fr"
+  ],
+  "pages_max": 2,
+  "photo": "attendue",
+  "etat_civil": {
+    "date_naissance": "attendue",
+    "nationalite": "attendue",
+    "situation_familiale": "attendue"
+  },
+  "regles_cv": [
+    "État civil en tête (date de naissance, situation matrimoniale, nationalité) quand le profil les fournit.",
+    "Une page pour un profil junior, deux au plus.",
+    "Ordre antichronologique."
+  ],
+  "regles_lettre": [
+    "Lettre formelle d'une page avec un objet (« Candidature au poste de … »).",
+    "Appel « Madame, Monsieur, » ou titre du destinataire s'il est connu ; formule finale « Veuillez agréer, Madame, Monsieur, l'expression de mes salutations distinguées. »."
+  ],
+  "resume": {
+    "fr": [
+      "Photo et état civil d'usage",
+      "1 page (junior), 2 au plus",
+      "Lettre formelle avec objet"
+    ],
+    "en": [
+      "Photo and personal details customary",
+      "1 page (junior), 2 at most",
+      "Formal letter with subject line"
+    ]
+  },
+  "fiabilite": "usage",
+  "sources": [
+    {
+      "titre": "Africarrières : Rédiger un CV (Sénégal)",
+      "url": "https://africarrieres.com/senegal/fr/guide/pratique/writing-cv",
+      "type": "privee"
+    },
+    {
+      "titre": "Sencampus : Construire son CV",
+      "url": "https://www.sencampus.com/construire-son-cv/",
+      "type": "privee"
+    }
+  ],
+  "verifie_le": "2026-11-22"
+}

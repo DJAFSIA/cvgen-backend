@@ -1,0 +1,49 @@
+{
+  "code": "cm",
+  "nom": {
+    "fr": "Cameroun",
+    "en": "Cameroon"
+  },
+  "langues_usuelles": [
+    "fr",
+    "en"
+  ],
+  "pages_max": 2,
+  "photo": "attendue",
+  "etat_civil": {
+    "date_naissance": "attendue",
+    "nationalite": "attendue",
+    "situation_familiale": "attendue"
+  },
+  "regles_cv": [
+    "État civil en tête (date et lieu de naissance, nationalité, situation matrimoniale) quand le profil les fournit.",
+    "Une à deux pages, ordre antichronologique.",
+    "Rubrique Langues avec le niveau en français et en anglais (pays bilingue) quand le profil l'indique.",
+    "Diplômes avec leur intitulé officiel et l'établissement."
+  ],
+  "regles_lettre": [
+    "Lettre formelle d'une page avec un objet (« Candidature au poste de … »).",
+    "Appel « Madame, Monsieur, » ou titre du destinataire s'il est connu ; formule finale « Veuillez agréer, Madame, Monsieur, l'expression de mes salutations distinguées. »."
+  ],
+  "resume": {
+    "fr": [
+      "Photo et état civil d'usage",
+      "1 à 2 pages",
+      "Niveau en français et en anglais"
+    ],
+    "en": [
+      "Photo and personal details customary",
+      "1 to 2 pages",
+      "French and English levels"
+    ]
+  },
+  "fiabilite": "usage",
+  "sources": [
+    {
+      "titre": "Africarrières : Rédiger un CV (Cameroun)",
+      "url": "https://africarrieres.com/cameroun/fr/guide/pratique/rediger-cv",
+      "type": "privee"
+    }
+  ],
+  "verifie_le": "2026-11-22"
+}

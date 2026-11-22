@@ -1,0 +1,59 @@
+{
+  "code": "us",
+  "nom": {
+    "fr": "États-Unis",
+    "en": "United States"
+  },
+  "langues_usuelles": [
+    "en"
+  ],
+  "pages_max": 1,
+  "photo": "deconseillee",
+  "etat_civil": {
+    "date_naissance": "deconseillee",
+    "nationalite": "deconseillee",
+    "situation_familiale": "deconseillee"
+  },
+  "regles_cv": [
+    "Resume d'une page (deux seulement pour un long parcours).",
+    "Aucune photo, ni âge, date de naissance, état civil, religion, santé ou numéro de sécurité sociale.",
+    "Puces qui commencent par un verbe d'action ; résultats chiffrés seulement s'ils figurent dans le profil.",
+    "Ordre antichronologique ; dates au format Month YYYY.",
+    "Pas de références sur le resume."
+  ],
+  "regles_lettre": [
+    "Cover letter d'une page, trois à quatre paragraphes.",
+    "Appel « Dear Hiring Manager, » sans nom connu ; formule finale « Sincerely, »."
+  ],
+  "resume": {
+    "fr": [
+      "Pas de photo, d'âge ni d'état civil",
+      "Une page, verbes d'action",
+      "Cover letter d'une page"
+    ],
+    "en": [
+      "No photo, age or marital status",
+      "One page, action verbs",
+      "One-page cover letter"
+    ]
+  },
+  "fiabilite": "officielle",
+  "sources": [
+    {
+      "titre": "NIH Office of Human Resources : Tips for writing a federal resume",
+      "url": "https://hr.nih.gov/jobs/how-apply/tips-writing-federal-resume",
+      "type": "officielle"
+    },
+    {
+      "titre": "New Jersey Department of Labor : Resume",
+      "url": "https://nj.gov/labor/career-services/tools-support/resume/",
+      "type": "officielle"
+    },
+    {
+      "titre": "U.S. Department of Justice : Resume tips",
+      "url": "https://justice.gov/careers/veterans/resume-tips.html",
+      "type": "officielle"
+    }
+  ],
+  "verifie_le": "2026-11-22"
+}

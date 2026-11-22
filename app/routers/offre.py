@@ -12,6 +12,7 @@ from app.models.offre import OffreEmploi
 from app.models.utilisateur import Utilisateur
 from app.models.profil import Profil
 from app.schemas.candidature import OffreCreate, OffreResponse, QuestionsRequest
+from app.pays import AUTRE, fiche
 from app.services.ia_service import analyser_offre, generer_questions_alignement
 from app.services.scraper_service import extraire_texte_offre_url, ScrapingError
 from app.core.rate_limit import extraction_limiter, analyse_limiter
@@ -29,6 +30,12 @@ def _langue(demandee: Optional[str], utilisateur) -> str:
     """Langue de l'interface envoyee par le site, sinon celle du compte."""
     langue = demandee or getattr(utilisateur, "langue", None) or "en"
     return langue if langue in INDISPONIBLE else "en"
+
+def _pays_detecte(valeur) -> Optional[str]:
+    """Code de pays rendu par l'IA, garde seulement s'il correspond a une fiche (ou « autre »)."""
+    code = str(valeur or "").strip().lower()
+    return code if code == AUTRE or fiche(code) else None
+
 
 # --- Schéma pour la requête d'extraction par URL ---
 class URLRequest(BaseModel):
@@ -73,6 +80,7 @@ async def soumettre_offre(data: OffreCreate, db: Session = Depends(get_db), curr
         # On convertit les listes en chaînes séparées par des virgules pour la BDD 
         # SI tes colonnes sont de type String
         mots_cles=", ".join(analyse.get("mots_cles", [])),
+        pays=_pays_detecte(analyse.get("pays")),
     )
     
     db.add(offre)
@@ -89,6 +97,7 @@ async def soumettre_offre(data: OffreCreate, db: Session = Depends(get_db), curr
         "points_forts": analyse.get("points_forts", [INDISPONIBLE[langue]["analyse"]]),
         "points_manquants": analyse.get("points_manquants", [INDISPONIBLE[langue]["analyse"]]),
         "conseil_ia": analyse.get("conseil_ia", INDISPONIBLE[langue]["conseil"]),
+        "pays": offre.pays,
         "date_ajout": offre.date_ajout
     }
 

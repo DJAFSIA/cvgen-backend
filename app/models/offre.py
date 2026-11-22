@@ -16,6 +16,7 @@ class OffreEmploi(Base):
     contenu_brut = Column(Text, nullable=False)
     mots_cles = Column(Text, nullable=True)
     score_compatibilite = Column(Float, nullable=True)
+    pays = Column(String(10), nullable=True)  # pays du poste detecte par l'analyse (app/pays)
     date_ajout = Column(DateTime(timezone=True), server_default=func.now())
 
     utilisateur = relationship("Utilisateur", back_populates="offres")

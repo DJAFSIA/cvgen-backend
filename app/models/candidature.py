@@ -14,6 +14,7 @@ class Candidature(Base):
     offre_id = Column(UUID(as_uuid=True), ForeignKey("offres_emploi.id"), nullable=False)
     statut = Column(String(50), default="en_cours")
     score_compatibilite = Column(Float, nullable=True)
+    pays = Column(String(10), nullable=True)  # usages du pays appliques a la derniere generation
     date_creation = Column(DateTime(timezone=True), server_default=func.now())
     date_modification = Column(DateTime(timezone=True), onupdate=func.now(), server_default=func.now())
 

@@ -1,0 +1,61 @@
+{
+  "code": "be",
+  "nom": {
+    "fr": "Belgique",
+    "en": "Belgium"
+  },
+  "langues_usuelles": [
+    "fr",
+    "nl",
+    "en"
+  ],
+  "pages_max": 2,
+  "photo": "facultative",
+  "etat_civil": {
+    "date_naissance": "facultative",
+    "nationalite": "facultative",
+    "situation_familiale": "facultative"
+  },
+  "regles_cv": [
+    "Deux pages au plus.",
+    "Données personnelles en tête : nom, adresse, téléphone, courriel.",
+    "Photo seulement si l'employeur la demande.",
+    "Rubrique Langues avec le niveau en français, néerlandais et anglais quand le profil l'indique.",
+    "Ordre antichronologique."
+  ],
+  "regles_lettre": [
+    "Lettre de motivation d'une page, adaptée à l'offre.",
+    "Appel « Madame, Monsieur, » ; formule finale « Je vous prie d'agréer, Madame, Monsieur, l'expression de mes salutations distinguées. »."
+  ],
+  "resume": {
+    "fr": [
+      "2 pages au plus",
+      "Photo seulement si elle est demandée",
+      "Niveaux de langues bien visibles"
+    ],
+    "en": [
+      "2 pages at most",
+      "Photo only if requested",
+      "Language levels clearly shown"
+    ]
+  },
+  "fiabilite": "officielle",
+  "sources": [
+    {
+      "titre": "Le Forem : Les indispensables pour réussir son CV",
+      "url": "https://leforem.be/citoyens/mon-CV.html",
+      "type": "officielle"
+    },
+    {
+      "titre": "EURES : Conditions de vie et de travail en Belgique",
+      "url": "https://eures.europa.eu/living-and-working/living-and-working-conditions/living-and-working-conditions-belgium_fr",
+      "type": "officielle"
+    },
+    {
+      "titre": "CGSLB : Comment postuler",
+      "url": "https://www.cgslb.be/sites/default/files/publicaties/comment-postuler-2023.pdf",
+      "type": "privee"
+    }
+  ],
+  "verifie_le": "2026-11-22"
+}

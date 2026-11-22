@@ -2,6 +2,7 @@ import json
 import logging
 from datetime import datetime
 
+from app.pays import AUTRE, consigne_cv, consigne_lettre, liste_pour_detection
 from app.services.llm import IAError, complete as _complete
 
 logger = logging.getLogger(__name__)
@@ -94,6 +95,9 @@ async def analyser_offre(contenu_offre: str, profil, langue: str = "fr") -> dict
     - "points_manquants": list of strings, 3 points a ameliorer ou a clarifier
     - "mots_cles": list of strings, 8 mots-cles de l'offre
     - "conseil_ia": string, conseil strategique concret pour renforcer la candidature
+    - "pays": string, code du pays ou se trouve le poste, parmi : {liste_pour_detection()} ;
+      pour le Canada, "ca-qc" si le poste est au Quebec et "ca" sinon ; "{AUTRE}" si le pays
+      n'est pas dans cette liste ou si l'offre ne permet pas de le savoir.
 
     {_consigne_reponse(langue, '"points_forts", "points_manquants" et "conseil_ia"')}
     Garde "titre_poste", "entreprise" et "mots_cles" tels qu'ils sont ecrits dans l'offre.
@@ -256,7 +260,7 @@ def _identite(profil) -> tuple[str, str]:
     return nom or "Candidat", email or ""
 
 
-async def generer_cv(profil, offre, modele: str = "classique", langue: str = "auto") -> dict:
+async def generer_cv(profil, offre, modele: str = "classique", langue: str = "auto", fiche_pays=None) -> dict:
     """Retourne un dict conforme a CVData ; le rendu est fait par les modeles HTML."""
     nom, email = _identite(profil)
     style = (
@@ -317,6 +321,7 @@ async def generer_cv(profil, offre, modele: str = "classique", langue: str = "au
       pour l'offre en premier.
     - Aucun crochet, aucun texte entre parentheses de type placeholder.
     - {style}
+    {consigne_cv(fiche_pays)}
     """
 
     texte = await _complete(prompt, max_tokens=8000)
@@ -324,7 +329,7 @@ async def generer_cv(profil, offre, modele: str = "classique", langue: str = "au
 
 
 # --- PHASE 4 : GENERATION DE LA LETTRE DE MOTIVATION (donnees structurees) ---
-async def generer_lettre_motivation(profil, offre, reponses_alignement=None, langue: str = "auto") -> dict:
+async def generer_lettre_motivation(profil, offre, reponses_alignement=None, langue: str = "auto", fiche_pays=None) -> dict:
     """Retourne un dict conforme a LettreData."""
     nom, email = _identite(profil)
     contact = "\n".join(x for x in (email, getattr(profil, "telephone", None), getattr(profil, "adresse", None)) if x)
@@ -380,6 +385,7 @@ async def generer_lettre_motivation(profil, offre, reponses_alignement=None, lan
       motivation personnelle et conclusion sobre.
     - Evite les phrases generiques non prouvees par l'offre.
     - signature: {nom}
+    {consigne_lettre(fiche_pays)}
     """
 
     texte = await _complete(prompt, max_tokens=6000)

@@ -26,6 +26,7 @@ class OffreResponse(BaseModel):
     points_forts: List[str] = []
     points_manquants: List[str] = []
     conseil_ia: Optional[str] = None
+    pays: Optional[str] = None  # code de app/pays, ou "autre"
     date_ajout: datetime
     model_config = ConfigDict(from_attributes=True)
 
@@ -40,6 +41,8 @@ class GenerationRequest(BaseModel):
     langue_documents: Literal["auto", "fr", "en", "es", "de", "pt", "it"] = "auto"
     ton_lettre: str = Field(default="professionnel", max_length=100)
     reponses_alignement: Optional[List[Dict[str, Any]]] = Field(default=None, max_length=10)
+    # Usages du pays vise (code de app/pays ou "autre") ; absent : pays detecte dans l'offre
+    pays: Optional[str] = Field(default=None, max_length=10)
 
 class CandidatureResponse(BaseModel):
     id: UUID

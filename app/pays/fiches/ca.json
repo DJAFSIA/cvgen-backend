@@ -1,0 +1,61 @@
+{
+  "code": "ca",
+  "nom": {
+    "fr": "Canada (hors Québec)",
+    "en": "Canada (outside Quebec)"
+  },
+  "langues_usuelles": [
+    "en",
+    "fr"
+  ],
+  "pages_max": 2,
+  "photo": "deconseillee",
+  "etat_civil": {
+    "date_naissance": "deconseillee",
+    "nationalite": "deconseillee",
+    "situation_familiale": "deconseillee"
+  },
+  "regles_cv": [
+    "Format nord-américain (resume) : ordre antichronologique, réalisations concrètes en puces.",
+    "Aucune photo, ni date de naissance, âge, état civil, religion ou numéro d'assurance sociale (SIN).",
+    "Coordonnées en tête : nom, ville et province, téléphone, courriel.",
+    "Une à deux pages.",
+    "Pas de nom de référence : au plus « References available upon request ».",
+    "En anglais, orthographe canadienne (centre, organization, program)."
+  ],
+  "regles_lettre": [
+    "Cover letter d'une page, adaptée à l'offre.",
+    "Appel « Dear Hiring Manager, » sans nom connu ; formule finale « Sincerely, »."
+  ],
+  "resume": {
+    "fr": [
+      "Pas de photo, d'âge ni d'état civil",
+      "1 à 2 pages, réalisations concrètes",
+      "Cover letter d'une page"
+    ],
+    "en": [
+      "No photo, age or marital status",
+      "1 to 2 pages, concrete achievements",
+      "One-page cover letter"
+    ]
+  },
+  "fiabilite": "officielle",
+  "sources": [
+    {
+      "titre": "Gouvernement de l'Ontario : Guide de rédaction de la lettre de présentation et du curriculum vitæ",
+      "url": "https://www.gojobs.gov.on.ca/Docs/OPSCoverLetterandResumeWritingGuideFr.pdf",
+      "type": "officielle"
+    },
+    {
+      "titre": "Settlement.Org (Ontario) : What do I include in my Canadian resume? What do I exclude?",
+      "url": "https://settlement.org/ontario/employment/find-a-job/resume/what-do-i-include-in-my-canadian-resume-what-do-i-exclude",
+      "type": "officielle"
+    },
+    {
+      "titre": "Guichet-Emplois : Présenter une demande d'emploi",
+      "url": "https://www.guichetemplois.gc.ca/trouverunemploi/ressources/presenter-demande-emploi",
+      "type": "officielle"
+    }
+  ],
+  "verifie_le": "2026-11-22"
+}
