@@ -105,6 +105,7 @@ def test_l_analyse_enregistre_le_pays_detecte(client, make_user, monkeypatch):
 def generation(db, make_user, monkeypatch):
     """Une candidature dont l'offre a ete detectee au Cameroun, et une IA factice qui note la fiche recue."""
     u, h = make_user()
+    u.profil.competences = "Jira, gestion de projet"  # profil renseigne : la generation est permise
     offre = OffreEmploi(utilisateur_id=u.id, contenu_brut="x" * 50, titre_poste="T", entreprise="E", pays="cm")
     db.add(offre)
     db.flush()
@@ -145,3 +146,19 @@ def test_un_pays_inconnu_est_refuse_sans_consommer_le_quota(client, db, generati
     r = client.post(f"/candidature/{cid}/generer", json={"pays": "zz"}, headers=h)
     assert r.status_code == 422 and code(r) == "unknown_country"
     assert _generations(db, u) == avant and recues == []
+
+
+def test_pas_de_generation_avec_un_profil_vide(client, db, generation):
+    """Avec un profil vide, l'IA ecrivait la lettre a partir des exigences de l'offre (faits inventes)."""
+    u, h, cid, recues = generation
+    u.profil.competences = None
+    db.commit()
+    avant = _generations(db, u)
+    r = client.post(f"/candidature/{cid}/generer", json={}, headers=h)
+    assert r.status_code == 400 and code(r) == "profile_incomplete"
+    assert _generations(db, u) == avant and recues == []
+
+
+def test_la_lettre_n_attribue_pas_les_exigences_de_l_offre(prompts):
+    asyncio.run(ia_service.generer_lettre_motivation(_profil(), _offre()))
+    assert "L'offre decrit le poste, pas le candidat" in prompts[0]

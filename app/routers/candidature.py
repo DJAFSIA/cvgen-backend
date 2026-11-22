@@ -21,6 +21,7 @@ from app.models.profil import Profil
 from app.models.utilisateur import Utilisateur
 from app.schemas.candidature import CandidatureCreate, CandidatureResponse, GenerationRequest
 from app.pays import AUTRE, fiche
+from app.services.ia_service import profil_renseigne
 from app.services.ia_service import generer_cv, generer_lettre_motivation
 from app.services.pdf_service import generer_pdf
 from app.services.document_service import (
@@ -91,6 +92,10 @@ async def lancer_generation(
     
     if not candidature:
         raise http_error(404, "application_not_found", "Candidature introuvable")
+
+    # Un profil vide ferait ecrire une lettre a partir des seules exigences de l'offre (faits inventes)
+    if not profil_renseigne(candidature.profil):
+        raise http_error(400, "profile_incomplete", "Completez votre profil (experiences, formation ou competences) avant de generer vos documents.")
 
     # Usages du pays vise : choix de l'utilisateur, sinon pays detecte dans l'offre ; « autre » = aucun
     code_pays = data.pays if data.pays is not None else candidature.offre.pays

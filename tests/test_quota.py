@@ -33,6 +33,7 @@ def ia_lente(monkeypatch):
 @pytest.fixture
 def candidatures(db, make_user):
     u, h = make_user()
+    u.profil.competences = "Jira, gestion de projet"  # profil renseigne : la generation est permise
     offre = OffreEmploi(utilisateur_id=u.id, contenu_brut="x" * 50, titre_poste="T", entreprise="E")
     db.add(offre)
     db.flush()

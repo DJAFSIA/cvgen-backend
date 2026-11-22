@@ -248,6 +248,13 @@ def _consigne_langue(langue: str, document: str) -> str:
     )
 
 
+def profil_renseigne(profil) -> bool:
+    """Vrai si le profil contient de quoi ecrire un CV : au moins une experience, une formation ou des competences."""
+    if profil is None:
+        return False
+    return bool(profil.experiences) or bool(profil.formations) or bool((profil.competences or "").strip())
+
+
 # --- PHASE 4 : GENERATION DU CV (donnees structurees) ---
 def _identite(profil) -> tuple[str, str]:
     nom = getattr(profil, "nom_complet_cv", None)
@@ -373,6 +380,8 @@ async def generer_lettre_motivation(profil, offre, reponses_alignement=None, lan
     - {_consigne_langue(langue, "la lettre")}
       Salutation et formule de politesse selon les usages de cette langue et de ce pays.
     - N'invente aucun fait, diplome, chiffre ou publication absent du profil et des reponses.
+    - L'offre decrit le poste, pas le candidat : ne lui attribue aucune exigence de l'offre (annees
+      d'experience, langue, outil, methode, secteur) que le profil ou ses reponses ne prouvent pas.
     - N'affirme jamais une connaissance prealable de l'entreprise ("j'ai suivi vos travaux", "votre
       plateforme", etc.) sauf si l'offre ou les reponses du candidat le permettent. N'exagere pas
       les niveaux ("expert", "avance") sans source.
