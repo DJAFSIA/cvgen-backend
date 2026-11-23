@@ -42,7 +42,7 @@ class Settings(BaseSettings):
     REQUIRE_EMAIL_VERIFICATION: bool = True
     GOOGLE_CLIENT_ID: str = ""
     # Version des conditions d'utilisation acceptees a l'inscription (a changer a chaque mise a jour)
-    CGU_VERSION: str = "2026-11-01"
+    CGU_VERSION: str = "2026-11-23"
     # Adresse du support : en "Repondre a" des emails et dans les messages de securite
     SUPPORT_EMAIL: str = ""
 

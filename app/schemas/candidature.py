@@ -43,6 +43,9 @@ class GenerationRequest(BaseModel):
     reponses_alignement: Optional[List[Dict[str, Any]]] = Field(default=None, max_length=10)
     # Usages du pays vise (code de app/pays ou "autre") ; absent : pays detecte dans l'offre
     pays: Optional[str] = Field(default=None, max_length=10)
+    # Ajoutes au PDF depuis le profil (modele etat_civil), jamais transmis a l'IA ; ignores si le pays les deconseille
+    avec_photo: bool = False
+    avec_etat_civil: bool = False
 
 class CandidatureResponse(BaseModel):
     id: UUID

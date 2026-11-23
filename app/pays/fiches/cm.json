@@ -15,8 +15,9 @@
     "nationalite": "attendue",
     "situation_familiale": "attendue"
   },
+  "modele_recommande": "etat_civil",
+  "format_page": "a4",
   "regles_cv": [
-    "État civil en tête (date et lieu de naissance, nationalité, situation matrimoniale) quand le profil les fournit.",
     "Une à deux pages, ordre antichronologique.",
     "Rubrique Langues avec le niveau en français et en anglais (pays bilingue) quand le profil l'indique.",
     "Diplômes avec leur intitulé officiel et l'établissement."

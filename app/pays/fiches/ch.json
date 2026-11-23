@@ -17,9 +17,9 @@
     "nationalite": "attendue",
     "situation_familiale": "facultative"
   },
+  "modele_recommande": "etat_civil",
+  "format_page": "a4",
   "regles_cv": [
-    "Données personnelles en tête : nom, adresse, téléphone, courriel, date de naissance, nationalité et, pour les personnes étrangères, type de permis (ex. permis B), quand le profil les fournit.",
-    "Photo facultative, au format passeport sur fond neutre.",
     "Parcours sans lacune, dates au mois près, ordre antichronologique.",
     "Deux pages au plus."
   ],

@@ -1,4 +1,5 @@
 import asyncio
+import base64
 import logging
 import os
 import shutil
@@ -21,8 +22,17 @@ _CHEMINS_NAVIGATEUR = (
 )
 
 
-def _refuser_ressource(url, *args, **kwargs):
-    raise ValueError("Chargement de ressources externes interdit")
+_PHOTO_INTEGREE = "data:image/jpeg;base64,"
+
+
+def _ressource_autorisee(url, *args, **kwargs):
+    """Aucune ressource externe (fichier, reseau) : seulement la photo integree a la page par le serveur."""
+    if not url.startswith(_PHOTO_INTEGREE):
+        raise ValueError("Chargement de ressources externes interdit")
+    from weasyprint.urls import URLFetcherResponse
+    return URLFetcherResponse(
+        url, body=base64.b64decode(url[len(_PHOTO_INTEGREE):], validate=True), headers={"Content-Type": "image/jpeg"},
+    )
 
 
 _weasyprint_lock = threading.Lock()
@@ -55,7 +65,7 @@ def _pdf_weasyprint(html_contenu: str, chemin: str) -> bool:
     html_cls = _charger_weasyprint()
     if not html_cls:
         return False
-    html_cls(string=html_contenu, url_fetcher=_refuser_ressource).write_pdf(chemin)
+    html_cls(string=html_contenu, url_fetcher=_ressource_autorisee).write_pdf(chemin)
     return True
 
 

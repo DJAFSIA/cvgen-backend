@@ -1,7 +1,7 @@
 import uuid
-from sqlalchemy import Column, String, Text, DateTime, ForeignKey
+from sqlalchemy import Column, Date, LargeBinary, SmallInteger, String, Text, DateTime, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID, JSONB
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import deferred, relationship
 from sqlalchemy.sql import func
 from app.core.database import Base
 
@@ -20,7 +20,21 @@ class Profil(Base):
     competences = Column(Text, nullable=True)
     langues = Column(String(500), nullable=True)
     cv_importe_url = Column(String(500), nullable=True)
+    # Facultatif, pour les pays ou un CV le montre ; jamais transmis a l'IA (app/services/etat_civil.py)
+    date_naissance = Column(Date, nullable=True)
+    lieu_naissance = Column(String(120), nullable=True)
+    nationalite = Column(String(2), nullable=True)  # code ISO du pays
+    situation_familiale = Column(String(20), nullable=True)
+    enfants = Column(SmallInteger, nullable=True)
+    permis_sejour = Column(String(80), nullable=True)
+    # JPEG reencode (app/services/photo_service.py), charge seulement quand il est demande
+    photo = deferred(Column(LargeBinary, nullable=True))
+    photo_maj = Column(DateTime(timezone=True), nullable=True)
     date_maj = Column(DateTime(timezone=True), onupdate=func.now(), server_default=func.now())
 
     utilisateur = relationship("Utilisateur", back_populates="profil")
     candidatures = relationship("Candidature", back_populates="profil")
+
+    @property
+    def a_photo(self) -> bool:
+        return self.photo_maj is not None

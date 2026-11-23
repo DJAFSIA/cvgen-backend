@@ -57,7 +57,7 @@ def test_les_usages_du_pays_entrent_dans_le_cv_et_la_lettre(prompts):
     asyncio.run(ia_service.generer_lettre_motivation(_profil(), _offre(), fiche_pays=quebec))
     cv, lettre = prompts
     assert "Usages du pays vise, Québec (Canada)" in cv and "2 pages au plus" in cv
-    assert "Aucune photo, ni âge" in cv and "n'en invente jamais" in cv
+    assert "Aucune photo, ni âge" in cv and "Elles ne te sont pas transmises" in cv
     assert "Lettre de présentation d'une page" in lettre
 
 

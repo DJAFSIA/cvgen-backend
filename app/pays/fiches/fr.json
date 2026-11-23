@@ -14,6 +14,8 @@
     "nationalite": "facultative",
     "situation_familiale": "deconseillee"
   },
+  "modele_recommande": "classique",
+  "format_page": "a4",
   "regles_cv": [
     "Une page ; deux seulement au-delà d'une dizaine d'années d'expérience.",
     "Un titre clair qui reprend l'intitulé du poste visé, puis une accroche courte.",

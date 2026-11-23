@@ -17,6 +17,8 @@ def liste_pays():
             "pages_max": f.pages_max,
             "photo": f.photo,
             "etat_civil": f.etat_civil.model_dump(),
+            "modele_recommande": f.modele_recommande,
+            "format_page": f.format_page,
             "fiabilite": f.fiabilite,
             "sources": [s.model_dump(mode="json") for s in f.sources],
             "verifie_le": f.verifie_le.isoformat(),

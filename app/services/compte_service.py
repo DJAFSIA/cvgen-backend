@@ -1,4 +1,5 @@
 """Droits RGPD : export des donnees (acces, portabilite) et suppression du compte (effacement)."""
+from base64 import b64encode
 from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
@@ -63,6 +64,13 @@ def exporter(db: Session, u: Utilisateur) -> dict:
             "formations": profil.formations,
             "competences": profil.competences,
             "langues": profil.langues,
+            "date_naissance": profil.date_naissance,
+            "lieu_naissance": profil.lieu_naissance,
+            "nationalite": profil.nationalite,
+            "situation_familiale": profil.situation_familiale,
+            "enfants": profil.enfants,
+            "titre_de_sejour": profil.permis_sejour,
+            "photo_jpeg_base64": b64encode(profil.photo).decode() if profil.a_photo else None,
             "mis_a_jour_le": profil.date_maj,
         },
         "offres": [
@@ -74,6 +82,7 @@ def exporter(db: Session, u: Utilisateur) -> dict:
                 "texte": o.contenu_brut,
                 "mots_cles": o.mots_cles,
                 "score_compatibilite": o.score_compatibilite,
+                "pays_detecte": o.pays,
                 "ajoutee_le": o.date_ajout,
             }
             for o in offres
@@ -84,6 +93,7 @@ def exporter(db: Session, u: Utilisateur) -> dict:
                 "offre_id": c.offre_id,
                 "statut": c.statut,
                 "score_compatibilite": c.score_compatibilite,
+                "pays_vise": c.pays,
                 "creee_le": c.date_creation,
                 "cv": _document(c.cv),
                 "lettre": _document(c.lettre),

@@ -28,7 +28,7 @@ def test_sortie_ia_imparfaite_normalisee():
     assert cv.nom == "" and cv.experiences[0].poste == "3" and cv.experiences[0].puces == ["ok", "42"] and cv.langues == ["fr"]
 
 
-@pytest.mark.parametrize("modele", ["classique", "moderne", "ats"])
+@pytest.mark.parametrize("modele", ["classique", "moderne", "ats", "nord_americain", "etat_civil"])
 def test_contenu_hostile_echappe_dans_les_modeles(modele):
     html = rendre_cv_html({"nom": "<script>alert(1)</script>", "resume": '<img src="file:///etc/passwd">'}, modele)
     assert "<script>" not in html and '<img src="file' not in html

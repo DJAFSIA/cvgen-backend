@@ -14,8 +14,9 @@
     "nationalite": "attendue",
     "situation_familiale": "attendue"
   },
+  "modele_recommande": "etat_civil",
+  "format_page": "a4",
   "regles_cv": [
-    "État civil en tête (date de naissance, nationalité, situation familiale) quand le profil les fournit.",
     "Une page pour un profil junior, deux au plus.",
     "Ordre antichronologique, sans faute d'orthographe."
   ],

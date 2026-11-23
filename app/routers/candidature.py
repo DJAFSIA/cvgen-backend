@@ -21,6 +21,7 @@ from app.models.profil import Profil
 from app.models.utilisateur import Utilisateur
 from app.schemas.candidature import CandidatureCreate, CandidatureResponse, GenerationRequest
 from app.pays import AUTRE, fiche
+from app.services import etat_civil
 from app.services.ia_service import profil_renseigne
 from app.services.ia_service import generer_cv, generer_lettre_motivation
 from app.services.pdf_service import generer_pdf
@@ -115,8 +116,12 @@ async def lancer_generation(
         ),
     )
 
-    # Normalisation des sorties du LLM (champs manquants, null, extras)
-    donnees_cv = CVData.model_validate(donnees_cv).model_dump()
+    # Normalisation des sorties du LLM (champs manquants, null, extras). Photo et etat civil viennent du
+    # profil au moment du PDF : l'IA ne les recoit pas et ne peut pas decider de leur affichage.
+    donnees_cv.pop("affichage", None)
+    cv_valide = CVData.model_validate(donnees_cv)
+    cv_valide.affichage = etat_civil.affichage(candidature.profil, fiche_pays, data.avec_photo, data.avec_etat_civil)
+    donnees_cv = cv_valide.model_dump()
     donnees_lettre = LettreData.model_validate(donnees_lettre).model_dump()
     contenu_cv = cv_en_markdown(donnees_cv)
     contenu_lettre = lettre_en_markdown(donnees_lettre)
@@ -150,6 +155,7 @@ async def lancer_generation(
         "lettre": contenu_lettre,
         "modele": data.modele_cv,
         "pays": candidature.pays,
+        "affichage": donnees_cv["affichage"],
     }
 
 
@@ -161,7 +167,8 @@ DOWNLOAD_PURPOSE = "download"
 def _charger_candidature(db: Session, candidature_id, utilisateur_id) -> Candidature:
     candidature = db.query(Candidature).options(
         joinedload(Candidature.cv),
-        joinedload(Candidature.lettre)
+        joinedload(Candidature.lettre),
+        joinedload(Candidature.profil),
     ).filter(
         Candidature.id == candidature_id,
         Candidature.utilisateur_id == utilisateur_id
@@ -171,18 +178,29 @@ def _charger_candidature(db: Session, candidature_id, utilisateur_id) -> Candida
     return candidature
 
 
+def _elements_personnels(candidature: Candidature, fiche_pays) -> tuple:
+    """Etat civil et photo a montrer, lus dans le profil actuel selon les choix faits a la generation."""
+    donnees = candidature.cv.donnees
+    choix = donnees.get("affichage") or {}
+    lignes = etat_civil.lignes(candidature.profil, donnees.get("langue"), fiche_pays) if choix.get("etat_civil") else []
+    photo = etat_civil.photo_en_ligne(candidature.profil) if choix.get("photo") else None
+    return lignes, photo
+
+
 async def _reponse_pdf(candidature: Candidature, type_doc: str, modele: str | None, nom: str, background_tasks: BackgroundTasks) -> FileResponse:
+    fiche_pays = fiche(candidature.pays)
+    page = fiche_pays.format_page if fiche_pays else "a4"
     if type_doc == "cv" and candidature.cv:
         doc = candidature.cv
         html_contenu = (
-            rendre_cv_html(doc.donnees, modele or doc.modele or "classique")
+            rendre_cv_html(doc.donnees, modele or doc.modele or "classique", page, *_elements_personnels(candidature, fiche_pays))
             if doc.donnees else rendre_markdown_html(doc.contenu_genere)
         )
         nom_fichier = f"CV_{_nom_sur(nom)}.pdf"
     elif type_doc == "lettre" and candidature.lettre:
         doc = candidature.lettre
         html_contenu = (
-            rendre_lettre_html(doc.donnees)
+            rendre_lettre_html(doc.donnees, page)
             if doc.donnees else rendre_markdown_html(doc.contenu_genere)
         )
         nom_fichier = f"Lettre_{_nom_sur(nom)}.pdf"

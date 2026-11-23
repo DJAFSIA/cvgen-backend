@@ -15,6 +15,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, HttpUrl
 
+from app.schemas.document import ModeleCV
+
 DOSSIER = Path(__file__).parent / "fiches"
 AUTRE = "autre"  # pays hors liste ou non indique : format international, sans fiche
 
@@ -40,7 +42,10 @@ class FichePays(BaseModel):
     pages_max: int = Field(ge=1, le=3)
     photo: Usage
     etat_civil: EtatCivil
-    regles_cv: list[str] = Field(min_length=3)
+    # Mise en page la plus proche des usages du pays, et format du papier (letter en Amerique du Nord)
+    modele_recommande: ModeleCV
+    format_page: Literal["a4", "letter"]
+    regles_cv: list[str] = Field(min_length=2)
     regles_lettre: list[str] = Field(min_length=1)
     resume: dict[Literal["fr", "en"], list[str]]
     # officielle : au moins une source publique (Etat, agence pour l'emploi) ; usage : guides prives
@@ -69,8 +74,8 @@ def fiche(code: str | None) -> FichePays | None:
 
 
 _DONNEES_PERSO = (
-    "Donnees personnelles : n'ajoute ni photo, ni date de naissance, ni nationalite, ni situation familiale "
-    "si le profil ne les fournit pas ; n'en invente jamais."
+    "Donnees personnelles : n'ecris ni photo, ni date de naissance, ni age, ni nationalite, ni situation "
+    "familiale. Elles ne te sont pas transmises ; Apply les ajoute lui-meme si le candidat le choisit."
 )
 
 

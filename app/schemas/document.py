@@ -2,8 +2,8 @@ from typing import Annotated, Any, List, Literal
 
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, field_validator
 
-ModeleCV = Literal["classique", "moderne", "ats"]
-MODELES_CV = ("classique", "moderne", "ats")
+ModeleCV = Literal["classique", "moderne", "ats", "nord_americain", "etat_civil"]
+MODELES_CV = ("classique", "moderne", "ats", "nord_americain", "etat_civil")
 
 
 def _texte(v: Any) -> str:
@@ -78,6 +78,13 @@ class GroupeCompetences(_Tolerant):
     elements: ListeTexte = Field(default_factory=list)
 
 
+class Affichage(_Tolerant):
+    """Elements ajoutes au PDF depuis le profil (jamais par l'IA) : choix faits a la generation."""
+
+    photo: bool = False
+    etat_civil: bool = False
+
+
 class CVData(_Tolerant):
     langue: Texte = "fr"
     labels: Labels = Field(default_factory=Labels)
@@ -89,6 +96,7 @@ class CVData(_Tolerant):
     formations: List[FormationCV] = Field(default_factory=list)
     competences: List[GroupeCompetences] = Field(default_factory=list)
     langues: ListeTexte = Field(default_factory=list)
+    affichage: Affichage = Field(default_factory=Affichage)
 
 
 class LettreData(_Tolerant):

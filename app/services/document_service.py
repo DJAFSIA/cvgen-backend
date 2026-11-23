@@ -18,16 +18,22 @@ _BASE_CSS = Markup((TEMPLATES_DIR / "_base.css").read_text(encoding="utf-8"))
 _md = MarkdownIt("commonmark", {"html": False})
 
 
-def rendre_cv_html(donnees: dict, modele: str = "classique") -> str:
+def _css(page: str) -> Markup:
+    """CSS de base ; papier Letter pour l'Amerique du Nord, A4 partout ailleurs."""
+    return _BASE_CSS + Markup("\n@page { size: letter; }") if page == "letter" else _BASE_CSS
+
+
+def rendre_cv_html(donnees: dict, modele: str = "classique", page: str = "a4", etat_civil=(), photo: str | None = None) -> str:
+    """etat_civil (couples libelle, valeur) et photo (URI de donnees) ne servent qu'au modele etat_civil."""
     if modele not in MODELES_CV:
         modele = "classique"
     d = CVData.model_validate(donnees)
-    return _env.get_template(f"cv_{modele}.html").render(d=d, base_css=_BASE_CSS)
+    return _env.get_template(f"cv_{modele}.html").render(d=d, base_css=_css(page), etat_civil=list(etat_civil), photo=photo)
 
 
-def rendre_lettre_html(donnees: dict) -> str:
+def rendre_lettre_html(donnees: dict, page: str = "a4") -> str:
     d = LettreData.model_validate(donnees)
-    return _env.get_template("lettre.html").render(d=d, base_css=_BASE_CSS)
+    return _env.get_template("lettre.html").render(d=d, base_css=_css(page))
 
 
 def rendre_markdown_html(texte: str) -> str:

@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File 
+from datetime import datetime, timezone
+
+from fastapi import APIRouter, Depends, HTTPException, Response, UploadFile, File
 from sqlalchemy.orm import Session
 import asyncio
 import logging
@@ -7,8 +9,9 @@ import tempfile
 from app.services.pdf_service import extraire_texte_du_pdf
 from app.services.ia_service import parser_cv_avec_ia
 from app.services.ia_service import IAError
+from app.services import photo_service
 from app.core.database import get_db
-from app.core.rate_limit import import_cv_limiter
+from app.core.rate_limit import import_cv_limiter, photo_limiter
 from app.core.errors import http_error
 from app.services.billing import quota
 from app.core.security import get_current_user, get_verified_user
@@ -47,6 +50,51 @@ def update_profil(
     db.refresh(profil)
     return profil
     
+
+# --- Photo du CV (facultative) : jamais transmise a l'IA, effacable a tout moment ---
+def _profil_de(db: Session, utilisateur: Utilisateur) -> Profil:
+    profil = db.query(Profil).filter(Profil.utilisateur_id == utilisateur.id).first()
+    if not profil:
+        raise http_error(404, "profile_not_found", "Profil introuvable")
+    return profil
+
+
+@router.put("/photo", dependencies=[photo_limiter.by_user()])
+async def envoyer_photo(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: Utilisateur = Depends(get_verified_user),
+):
+    profil = _profil_de(db, current_user)
+    contenu = await file.read(photo_service.MAX_OCTETS + 1)
+    if len(contenu) > photo_service.MAX_OCTETS:
+        raise http_error(413, "photo_too_large", "Photo trop volumineuse (8 Mo maximum).")
+    try:
+        profil.photo = await asyncio.to_thread(photo_service.normaliser, contenu)
+    except photo_service.PhotoInvalide as e:
+        raise http_error(400, e.code, "Cette photo ne peut pas etre utilisee.")
+    profil.photo_maj = datetime.now(timezone.utc)
+    db.commit()
+    return {"a_photo": True}
+
+
+@router.get("/photo")
+def lire_photo(db: Session = Depends(get_db), current_user: Utilisateur = Depends(get_current_user)):
+    profil = _profil_de(db, current_user)
+    if not profil.a_photo:
+        raise http_error(404, "photo_not_found", "Aucune photo")
+    return Response(content=profil.photo, media_type="image/jpeg", headers={"Cache-Control": "private, no-store"})
+
+
+@router.delete("/photo")
+def supprimer_photo(db: Session = Depends(get_db), current_user: Utilisateur = Depends(get_current_user)):
+    profil = _profil_de(db, current_user)
+    profil.photo = None
+    profil.photo_maj = None
+    db.commit()
+    return {"a_photo": False}
+
+
 MAX_CV_BYTES = 5 * 1024 * 1024
 
 

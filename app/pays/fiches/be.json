@@ -16,10 +16,11 @@
     "nationalite": "facultative",
     "situation_familiale": "facultative"
   },
+  "modele_recommande": "classique",
+  "format_page": "a4",
   "regles_cv": [
     "Deux pages au plus.",
-    "Données personnelles en tête : nom, adresse, téléphone, courriel.",
-    "Photo seulement si l'employeur la demande.",
+    "Coordonnées en tête : nom, adresse, téléphone, courriel.",
     "Rubrique Langues avec le niveau en français, néerlandais et anglais quand le profil l'indique.",
     "Ordre antichronologique."
   ],
