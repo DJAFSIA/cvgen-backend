@@ -160,7 +160,8 @@ async def generer_questions_alignement(profil, offre, langue: str = "fr") -> dic
 
     secours = QUESTIONS_SECOURS.get(langue, QUESTIONS_SECOURS["en"])
     try:
-        texte = await _complete(prompt)
+        # Etape d'appoint : les questions de secours valent mieux qu'une longue attente
+        texte = await _complete(prompt, essai=30, delai=60)
         data = _parse_json(texte)
         questions = data.get("questions", [])
         if not questions:
@@ -177,14 +178,14 @@ async def generer_questions_alignement(profil, offre, langue: str = "fr") -> dic
 # Questions de secours si l'IA ne repond pas, dans la langue de l'interface
 QUESTIONS_SECOURS = {
     "fr": {
-        "diagnostic_court": "Quelques precisions peuvent renforcer la lettre.",
-        "diagnostic": "Quelques precisions aideront a rendre la lettre plus personnelle et convaincante.",
+        "diagnostic_court": "Quelques précisions peuvent renforcer la lettre.",
+        "diagnostic": "Quelques précisions aideront à rendre la lettre plus personnelle et convaincante.",
         "questions": [
             {
                 "id": "q1",
-                "theme": "Experience pertinente",
-                "question": "Quelle experience de votre parcours ressemble le plus aux missions de cette offre ?",
-                "aide": "Contexte, probleme traite, actions menees et resultat obtenu.",
+                "theme": "Expérience pertinente",
+                "question": "Quelle expérience de votre parcours ressemble le plus aux missions de cette offre ?",
+                "aide": "Contexte, problème traité, actions menées et résultat obtenu.",
             },
             {
                 "id": "q2",
@@ -194,9 +195,9 @@ QUESTIONS_SECOURS = {
             },
             {
                 "id": "q3",
-                "theme": "Preuve concrete",
-                "question": "Quel resultat, projet ou apprentissage prouve le mieux votre capacite a reussir dans ce poste ?",
-                "aide": "Resultat mesurable, livrable, publication, responsabilite ou situation marquante.",
+                "theme": "Preuve concrète",
+                "question": "Quel résultat, projet ou apprentissage prouve le mieux votre capacité à réussir dans ce poste ?",
+                "aide": "Résultat mesurable, livrable, publication, responsabilité ou situation marquante.",
             },
         ],
     },
